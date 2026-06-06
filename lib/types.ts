@@ -91,6 +91,21 @@ export interface PracticeResult {
   supported: boolean;
 }
 
+export interface MiniMockAttempt {
+  mockId: string;
+  answers: Record<string, number>;
+  notes: string;
+  speakingNotes: string;
+  writing: string;
+  rubric: Record<string, boolean>;
+  submitted: boolean;
+  submittedAt?: string;
+  score?: number;
+  elapsedSeconds?: number;
+  timed: boolean;
+  updatedAt: string;
+}
+
 export interface AppState {
   onboarded: boolean;
   profile: UserProfile;
@@ -106,5 +121,6 @@ export interface AppState {
   errorLog: ErrorEntry[];
   practiceHistory: PracticeResult[];
   writingDrafts: Array<{ promptId: string; draft: string; revision: string; score: number }>;
-  speakingAttempts: Array<{ promptId: string; selfRating: number; notes: string; audioUrl?: string }>;
+  speakingAttempts: Array<{ promptId: string; selfRating: number; notes: string; hasAudioEvidence?: boolean; audioUrl?: string }>;
+  miniMockAttempts: MiniMockAttempt[];
 }

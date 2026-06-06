@@ -13,6 +13,9 @@ Use this before handing off frontend work.
 ## Design
 
 - [ ] Interface feels calm, dense, premium, and operational.
+- [ ] Buttons follow `reference/UI_COMPONENT_SPEC.md`.
+- [ ] Cards and panels follow `reference/UI_COMPONENT_SPEC.md`.
+- [ ] Inputs, badges, progress tracks, and navigation follow `reference/UI_COMPONENT_SPEC.md`.
 - [ ] Accent color guides attention without dominating.
 - [ ] Panels/cards have consistent treatment.
 - [ ] Controls feel tactile and consistent.

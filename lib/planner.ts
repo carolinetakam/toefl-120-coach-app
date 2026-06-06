@@ -26,9 +26,21 @@ export function generateDailyPlan(state: AppState): DailyTask[] {
   const secondWeakestSubskill = weakestSubskillForSection(state, secondWeakest);
   const dueReviewCount = state.reviewQueue.filter((item) => new Date(item.dueDate) <= new Date()).length;
   const reviewMinutes = dueReviewCount > 0 && available >= 35 ? 10 : 5;
-  const retrievalMinutes = Math.max(5, Math.round(available * 0.18));
-  const timedMinutes = Math.max(5, urgency < 21 ? Math.round(available * 0.28) : Math.round(available * 0.23));
-  const precisionMinutes = Math.max(5, available - retrievalMinutes - timedMinutes - reviewMinutes);
+  let retrievalMinutes = Math.max(5, Math.round(available * 0.18));
+  let timedMinutes = Math.max(5, urgency < 21 ? Math.round(available * 0.28) : Math.round(available * 0.23));
+  let precisionMinutes = Math.max(5, available - retrievalMinutes - timedMinutes - reviewMinutes);
+
+  let overflow = retrievalMinutes + timedMinutes + reviewMinutes + precisionMinutes - available;
+  if (overflow > 0) {
+    const timedReduction = Math.min(overflow, Math.max(0, timedMinutes - 5));
+    timedMinutes -= timedReduction;
+    overflow -= timedReduction;
+    const retrievalReduction = Math.min(overflow, Math.max(0, retrievalMinutes - 5));
+    retrievalMinutes -= retrievalReduction;
+    overflow -= retrievalReduction;
+    const precisionReduction = Math.min(overflow, Math.max(0, precisionMinutes - 5));
+    precisionMinutes -= precisionReduction;
+  }
 
   return [
     {

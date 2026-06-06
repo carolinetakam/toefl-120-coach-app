@@ -11,7 +11,7 @@ export default function BetaPage() {
         <div className="stack" style={{ gap: 10 }}>
           <span className="kicker">Closed beta onboarding</span>
           <h1>Join the first TOEFL 120 Coach Korea beta</h1>
-          <p className="copy">We are inviting 5 Korean TOEFL learners to test a daily practice coach for one week. It helps organize practice, find weak spots, and review mistakes. It does not predict an official TOEFL score.</p>
+          <p className="copy">We are inviting 5 Korean TOEFL learners to test a 3-day emergency prep loop with a 5-day maximum proof window. It helps organize practice, find weak spots, and review mistakes. It does not predict an official TOEFL score.</p>
           <p className="copy">시작 전 베타 참여 가능 여부를 먼저 확인해 주세요. 가입, 목표 입력, 진단, 미니 모의고사, 오늘의 학습 계획 순서로 진행합니다.</p>
         </div>
         <div className="chips">
@@ -28,7 +28,7 @@ export default function BetaPage() {
       </section>
 
       <section className="panel stack legalPage">
-        <h2>First Week Path</h2>
+        <h2>3-Day Proof Path</h2>
         <div className="grid two">
           {betaOnboardingSteps.map((step, index) => (
             <div className="sectionCard stack" key={step.title}>

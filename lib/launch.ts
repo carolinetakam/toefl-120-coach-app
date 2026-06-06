@@ -1,5 +1,15 @@
 export const betaCohortSize = 'First cohort: 5 Korean learners only';
 
+export const productionLaunchConfig = {
+  publicDomain: 'score120coach.com',
+  publicUrl: 'https://score120coach.com',
+  wwwDomain: 'www.score120coach.com',
+  host: 'Vercel project toefl-120-coach',
+  convexUrl: 'https://brainy-chicken-240.convex.cloud',
+  clerkFrontendApi: 'https://clerk.score120coach.com',
+  supportEmail: 'support@score120coach.com',
+};
+
 export const betaOnboardingSteps = [
   {
     title: 'Create your account',
@@ -18,8 +28,8 @@ export const betaOnboardingSteps = [
     detail: 'Complete objective questions, listening notes, speaking checklist, and writing response.',
   },
   {
-    title: 'Return for four daily plans',
-    detail: 'Use the Today, Review, and Practice tabs so the beta can measure retention and improvement.',
+    title: 'Complete the 3-day sprint',
+    detail: 'Use Today, Review, Practice, and Mock so the beta can measure improvement before the 5-day maximum window ends.',
   },
 ];
 
@@ -33,7 +43,7 @@ export const betaSafetyChecks = [
 
 export const koreaBetaQualification = [
   'Preparing for TOEFL in the next 1-6 months',
-  'Can practice at least three times in the first week',
+  'Can practice at least three times in the next 3-5 days',
   'Will report confusing scoring, broken flows, and unclear daily plans',
   'Understands the product gives practice-readiness signals, not guaranteed outcomes',
 ];

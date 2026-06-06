@@ -12,7 +12,8 @@ This package defines Caroline's frontend build process: build the real usable ap
 | --- | --- | --- |
 | Start frontend work | `agent-handoff/FRONTEND_AGENT_HANDOFF.md` | `process/FRONTEND_BUILD_PROCESS.md` |
 | Understand build sequence | `process/FRONTEND_BUILD_PROCESS.md` | `checklists/FRONTEND_ACCEPTANCE_CHECKLIST.md` |
-| Understand visual/product philosophy | `reference/MYRIAD_FRONTEND_PHILOSOPHY.md` | `reference/MYRIAD_SOURCE_POINTERS.md` |
+| Understand visual/product philosophy | `reference/MYRIAD_FRONTEND_PHILOSOPHY.md` | `reference/UI_COMPONENT_SPEC.md` |
+| Match buttons, cards, panels, and controls | `reference/UI_COMPONENT_SPEC.md` | current app CSS/components |
 | Check whether work is done | `checklists/FRONTEND_ACCEPTANCE_CHECKLIST.md` | current app source and browser verification |
 | Hand off to another agent | `agent-handoff/COPY_PASTE_PROMPT.md` | `README.md` |
 
@@ -25,6 +26,7 @@ This package defines Caroline's frontend build process: build the real usable ap
 - Keep demo/local/live state truthful.
 - Do not imply production actions happened unless real code, mutation, job, or integration supports it.
 - Verify desktop and mobile UI before final handoff.
+- Use `reference/UI_COMPONENT_SPEC.md` so buttons, cards, panels, badges, inputs, progress tracks, and navigation feel consistent across apps.
 
 ## Tools
 

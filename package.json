@@ -10,6 +10,7 @@
     "test": "vitest",
     "test:watch": "vitest --watch",
     "test:run": "vitest run",
+    "smoke:proof": "vitest run tests/proof-loop-smoke.test.ts --pool=threads",
     "convex:dev": "convex dev",
     "convex:deploy": "convex deploy"
   },

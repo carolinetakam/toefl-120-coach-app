@@ -107,9 +107,29 @@ export default defineSchema({
     promptId: v.string(),
     selfRating: v.number(),
     notes: v.string(),
+    hasAudioEvidence: v.optional(v.boolean()),
     audioStorageId: v.optional(v.id('_storage')),
     updatedAt: v.number(),
   })
     .index('by_userId', ['userId'])
     .index('by_user_promptId', ['userId', 'promptId']),
+
+  miniMockAttempts: defineTable({
+    userId: v.id('users'),
+    mockId: v.string(),
+    answers: v.record(v.string(), v.number()),
+    notes: v.string(),
+    speakingNotes: v.string(),
+    writing: v.string(),
+    rubric: v.record(v.string(), v.boolean()),
+    submitted: v.boolean(),
+    submittedAt: v.optional(v.string()),
+    score: v.optional(v.number()),
+    elapsedSeconds: v.optional(v.number()),
+    timed: v.optional(v.boolean()),
+    updatedAt: v.string(),
+    updatedAtMs: v.number(),
+  })
+    .index('by_userId', ['userId'])
+    .index('by_user_mockId', ['userId', 'mockId']),
 });

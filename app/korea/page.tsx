@@ -29,7 +29,7 @@ export default function KoreaPage() {
         </div>
         <div className="panel stack">
           <h2>What The Beta Measures</h2>
-          <p>We track whether learners complete the diagnostic, finish a mini mock, understand the feedback, return for daily practice, and improve objective accuracy plus writing/speaking structure over one week.</p>
+          <p>We track whether learners complete the diagnostic, finish a mini mock, understand the feedback, return for urgent daily practice, and improve objective accuracy plus writing/speaking structure within 3-5 days.</p>
         </div>
       </section>
 
@@ -45,7 +45,7 @@ export default function KoreaPage() {
       </section>
 
       <section className="panel stack">
-        <h2>First Week Study Loop</h2>
+        <h2>3-Day Emergency Study Loop</h2>
         <div className="grid two">
           <div className="sectionCard stack">
             <span className="chip">Day 1</span>
@@ -53,14 +53,14 @@ export default function KoreaPage() {
             <p className="copy">Find the first blocker and record a practice-signal baseline.</p>
           </div>
           <div className="sectionCard stack">
-            <span className="chip">Days 2-4</span>
+            <span className="chip">Day 2</span>
             <h3>Daily plan + review</h3>
             <p className="copy">Practice the weakest section and repeat missed material.</p>
           </div>
           <div className="sectionCard stack">
-            <span className="chip">Day 5</span>
-            <h3>Repeat mini mock</h3>
-            <p className="copy">Compare objective accuracy, writing structure, speaking checklist, and readiness trend.</p>
+            <span className="chip">Day 3</span>
+            <h3>Proof mini mock + repair</h3>
+            <p className="copy">Compare objective accuracy, writing structure, speaking evidence, and the exact final repair.</p>
           </div>
           <div className="sectionCard stack">
             <span className="chip">Support</span>

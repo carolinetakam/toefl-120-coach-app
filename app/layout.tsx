@@ -18,7 +18,7 @@ export const metadata: Metadata = {
   },
   appleWebApp: {
     capable: true,
-    statusBarStyle: 'black-translucent',
+    statusBarStyle: 'default',
     title: 'TOEFL 120 Coach',
   },
 };
@@ -27,7 +27,7 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',
-  themeColor: '#0f172a',
+  themeColor: '#f6f1e8',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

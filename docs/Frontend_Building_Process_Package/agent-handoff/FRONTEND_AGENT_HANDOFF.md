@@ -14,7 +14,8 @@ Do not build a generic landing page, fake dashboard, decorative mockup, or place
 
 1. `process/FRONTEND_BUILD_PROCESS.md`
 2. `reference/MYRIAD_FRONTEND_PHILOSOPHY.md`
-3. `checklists/FRONTEND_ACCEPTANCE_CHECKLIST.md`
+3. `reference/UI_COMPONENT_SPEC.md`
+4. `checklists/FRONTEND_ACCEPTANCE_CHECKLIST.md`
 
 ## Build From Current Reality
 
@@ -109,3 +110,4 @@ When done, the frontend should be:
 - connected to real app data or truthfully labeled local/demo data
 - tested or manually verified
 - production-shaped, not a stub
+- consistent with the shared button, card, panel, input, badge, progress, and navigation specs

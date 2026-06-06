@@ -61,6 +61,7 @@ export function loadState(): AppState {
       speakingAttempts: Array.isArray(parsed.speakingAttempts)
         ? parsed.speakingAttempts.map((entry) => ({ ...entry, audioUrl: undefined }))
         : initialState.speakingAttempts,
+      miniMockAttempts: Array.isArray(parsed.miniMockAttempts) ? parsed.miniMockAttempts : initialState.miniMockAttempts,
     });
   } catch {
     return initialState;
@@ -83,6 +84,7 @@ export function toPersistableState(state: AppState): AppState {
       promptId: entry.promptId,
       selfRating: entry.selfRating,
       notes: entry.notes,
+      hasAudioEvidence: Boolean(entry.hasAudioEvidence),
     })),
   });
 }

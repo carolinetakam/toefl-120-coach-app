@@ -16,7 +16,8 @@ Then have it read:
 
 1. `process/FRONTEND_BUILD_PROCESS.md`
 2. `reference/MYRIAD_FRONTEND_PHILOSOPHY.md`
-3. `checklists/FRONTEND_ACCEPTANCE_CHECKLIST.md`
+3. `reference/UI_COMPONENT_SPEC.md`
+4. `checklists/FRONTEND_ACCEPTANCE_CHECKLIST.md`
 
 ## What This Package Teaches
 
@@ -41,6 +42,7 @@ Myriad demonstrates the target pattern:
 - source/data status visible
 - tactile controls and soft raised panels
 - real loading, empty, error, and permission states
+- shared button, card, panel, input, badge, progress, and navigation specs
 - no fake production actions
 - agent/AI work is explainable and governable
 

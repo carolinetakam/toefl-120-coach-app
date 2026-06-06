@@ -26,10 +26,10 @@ describe('storage', () => {
   it('creates a persistable state without temporary speaking audio URLs', () => {
     const state = toPersistableState({
       ...initialState,
-      speakingAttempts: [{ promptId: 'speaking-1', selfRating: 4, notes: 'clear answer', audioUrl: 'blob:local-audio' }],
+      speakingAttempts: [{ promptId: 'speaking-1', selfRating: 4, notes: 'clear answer', hasAudioEvidence: true, audioUrl: 'blob:local-audio' }],
     });
 
-    expect(state.speakingAttempts).toEqual([{ promptId: 'speaking-1', selfRating: 4, notes: 'clear answer', audioUrl: undefined }]);
+    expect(state.speakingAttempts).toEqual([{ promptId: 'speaking-1', selfRating: 4, notes: 'clear answer', hasAudioEvidence: true, audioUrl: undefined }]);
   });
 
   it('loadState merges partial local data with safe defaults', async () => {
@@ -54,12 +54,54 @@ describe('storage', () => {
     saveState({
       ...initialState,
       xp: -10,
-      speakingAttempts: [{ promptId: 'speaking-1', selfRating: 5, notes: 'notes', audioUrl: 'blob:local-audio' }],
+      speakingAttempts: [{ promptId: 'speaking-1', selfRating: 5, notes: 'notes', hasAudioEvidence: true, audioUrl: 'blob:local-audio' }],
     });
 
     const saved = JSON.parse(store.get('toefl-120-coach-state') ?? '{}');
     expect(saved.xp).toBe(0);
-    expect(saved.speakingAttempts[0]).toEqual({ promptId: 'speaking-1', selfRating: 5, notes: 'notes' });
+    expect(saved.speakingAttempts[0]).toEqual({ promptId: 'speaking-1', selfRating: 5, notes: 'notes', hasAudioEvidence: true });
+  });
+
+  it('persists sanitized mini mock attempts for reload/resume', async () => {
+    const store = installWindow();
+    vi.resetModules();
+    const { saveState, loadState } = await import('../lib/storage');
+
+    saveState({
+      ...initialState,
+      miniMockAttempts: [
+        {
+          mockId: 'mock-campus-ecology-1',
+          answers: { 'mock-r-1': 0, bad: 99 },
+          notes: 'purpose notes',
+          speakingNotes: 'finish was clear',
+          writing: 'draft',
+          rubric: { 'Clear main idea': true },
+          submitted: true,
+          submittedAt: '2026-06-04T00:00:00.000Z',
+          score: 1.4,
+          elapsedSeconds: 2000,
+          timed: true,
+          updatedAt: '2026-06-04T00:00:00.000Z',
+        },
+      ],
+    });
+
+    const loaded = loadState();
+
+    expect(JSON.parse(store.get('toefl-120-coach-state') ?? '{}').miniMockAttempts).toHaveLength(1);
+    expect(loaded.miniMockAttempts[0]).toMatchObject({
+      mockId: 'mock-campus-ecology-1',
+      answers: { 'mock-r-1': 0, bad: 10 },
+      notes: 'purpose notes',
+      speakingNotes: 'finish was clear',
+      writing: 'draft',
+      rubric: { 'Clear main idea': true },
+      submitted: true,
+      score: 1,
+      elapsedSeconds: 2000,
+      timed: true,
+    });
   });
 
   it('server sync requests reuse a stable client id header', async () => {

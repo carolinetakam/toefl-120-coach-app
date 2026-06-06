@@ -5,7 +5,20 @@ export function getLocalDateKey(reference = new Date()) {
   return `${year}-${month}-${day}`;
 }
 
-export function daysUntil(testDate: string) {
-  const diff = new Date(testDate).getTime() - Date.now();
+export function dateAfterDays(days: number, reference = new Date()) {
+  const next = new Date(reference);
+  next.setDate(next.getDate() + days);
+  return getLocalDateKey(next);
+}
+
+function parseLocalDate(dateKey: string) {
+  const [year, month, day] = dateKey.split('-').map(Number);
+  if (!year || !month || !day) return new Date(dateKey);
+  return new Date(year, month - 1, day);
+}
+
+export function daysUntil(testDate: string, reference = new Date()) {
+  const referenceDate = parseLocalDate(getLocalDateKey(reference));
+  const diff = parseLocalDate(testDate).getTime() - referenceDate.getTime();
   return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
 }

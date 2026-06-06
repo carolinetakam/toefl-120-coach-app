@@ -1,3 +1,4 @@
+import { dateAfterDays } from '@/lib/dates';
 import { AppState, DiagnosticQuestion, PracticeCard, ReviewCard, Section, UserProfile } from '@/lib/types';
 
 export const sectionLabels: Record<Section, string> = {
@@ -10,7 +11,7 @@ export const sectionLabels: Record<Section, string> = {
 export const defaultProfile: UserProfile = {
   name: 'Learner',
   targetScore: 120,
-  testDate: new Date(Date.now() + 1000 * 60 * 60 * 24 * 45).toISOString().slice(0, 10),
+  testDate: dateAfterDays(3),
   dailyMinutes: 60,
   confidence: {
     reading: 0,
@@ -595,4 +596,5 @@ export const initialState: AppState = {
   practiceHistory: [],
   writingDrafts: [],
   speakingAttempts: [],
+  miniMockAttempts: [],
 };

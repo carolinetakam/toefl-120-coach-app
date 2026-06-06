@@ -111,6 +111,8 @@ Use the Myriad-inspired house style:
 
 The interface should look expensive because it is clear, calm, and precise.
 
+Use `reference/UI_COMPONENT_SPEC.md` for exact button, card, panel, badge, input, navigation, and progress styles. Product screens may differ by domain, but these component primitives should remain consistent across apps.
+
 ## 8. Preserve Human Agency
 
 If automation or AI is involved, show:

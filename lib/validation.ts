@@ -117,8 +117,49 @@ function sanitizeSpeakingAttempts(value: unknown): AppState['speakingAttempts'] 
     promptId: asString(entry.promptId, `speaking-${index}`),
     selfRating: asNumber(entry.selfRating, 3, 1, 5),
     notes: asString(entry.notes, ''),
+    hasAudioEvidence: asBoolean(entry.hasAudioEvidence, false),
     audioUrl: undefined,
   }));
+}
+
+function sanitizeNumberAnswerRecord(value: unknown) {
+  if (!isObject(value)) return {};
+  return Object.fromEntries(
+    Object.entries(value)
+      .filter(([key, answer]) => key.length > 0 && Number.isInteger(answer))
+      .map(([key, answer]) => [key, asNumber(answer, 0, 0, 10)]),
+  ) as Record<string, number>;
+}
+
+function sanitizeBooleanRecord(value: unknown) {
+  if (!isObject(value)) return {};
+  return Object.fromEntries(
+    Object.entries(value)
+      .filter(([key]) => key.length > 0)
+      .map(([key, checked]) => [key, asBoolean(checked, false)]),
+  ) as Record<string, boolean>;
+}
+
+function sanitizeMiniMockAttempts(value: unknown): AppState['miniMockAttempts'] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter(isObject)
+    .map((entry, index) => ({
+      mockId: asString(entry.mockId, `mock-${index}`),
+      answers: sanitizeNumberAnswerRecord(entry.answers),
+      notes: asString(entry.notes, '').slice(0, 5000),
+      speakingNotes: asString(entry.speakingNotes, '').slice(0, 5000),
+      writing: asString(entry.writing, '').slice(0, 10000),
+      rubric: sanitizeBooleanRecord(entry.rubric),
+      submitted: asBoolean(entry.submitted, false),
+      submittedAt: entry.submittedAt === undefined ? undefined : asDateString(entry.submittedAt, new Date().toISOString()),
+      score: entry.score === undefined ? undefined : asNumber(entry.score, 0, 0, 1),
+      elapsedSeconds: entry.elapsedSeconds === undefined ? undefined : asNumber(entry.elapsedSeconds, 0, 0, 24 * 60 * 60),
+      timed: asBoolean(entry.timed, false),
+      updatedAt: asDateString(entry.updatedAt, new Date().toISOString()),
+    }))
+    .filter((entry) => entry.mockId.length > 0)
+    .slice(0, 20);
 }
 
 export function sanitizeAppState(value: unknown): AppState {
@@ -154,6 +195,7 @@ export function sanitizeAppState(value: unknown): AppState {
     practiceHistory: sanitizePracticeHistory(value.practiceHistory),
     writingDrafts: sanitizeWritingDrafts(value.writingDrafts),
     speakingAttempts: sanitizeSpeakingAttempts(value.speakingAttempts),
+    miniMockAttempts: sanitizeMiniMockAttempts(value.miniMockAttempts),
   };
 }
 

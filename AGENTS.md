@@ -26,9 +26,10 @@ For frontend/UI updates, also read:
 2. `docs/Frontend_Building_Process_Package/agent-handoff/FRONTEND_AGENT_HANDOFF.md`.
 3. `docs/Frontend_Building_Process_Package/process/FRONTEND_BUILD_PROCESS.md`.
 4. `docs/Frontend_Building_Process_Package/reference/MYRIAD_FRONTEND_PHILOSOPHY.md`.
-5. Use `docs/Frontend_Building_Process_Package/checklists/FRONTEND_ACCEPTANCE_CHECKLIST.md` before handoff.
+5. `docs/Frontend_Building_Process_Package/reference/UI_COMPONENT_SPEC.md`.
+6. Use `docs/Frontend_Building_Process_Package/checklists/FRONTEND_ACCEPTANCE_CHECKLIST.md` before handoff.
 
-This frontend package defines the Myriad-inspired build process and product feel: real app first, calm premium operational UI, visible workflow, truthful state, and browser verification.
+This frontend package defines the Myriad-inspired build process and product feel: real app first, calm premium operational UI, visible workflow, truthful state, shared button/card/control specs, and browser verification.
 
 ## Operating Rules
 
