@@ -11,6 +11,7 @@ describe('sanitizeAppState', () => {
           reading: 9,
         },
       },
+      diagnosticFormId: 'unknown-form',
       sectionScores: {
         reading: 5,
         listening: -1,
@@ -22,6 +23,7 @@ describe('sanitizeAppState', () => {
     expect(state.profile.targetScore).toBe(120);
     expect(state.profile.dailyMinutes).toBe(20);
     expect(state.profile.confidence.reading).toBe(5);
+    expect(state.diagnosticFormId).toBe('baseline');
     expect(state.sectionScores.reading).toBe(1);
     expect(state.sectionScores.listening).toBe(0);
     expect(state.xp).toBe(0);

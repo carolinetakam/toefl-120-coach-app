@@ -578,6 +578,7 @@ export const starterReviewQueue: ReviewCard[] = [
 export const initialState: AppState = {
   onboarded: false,
   profile: defaultProfile,
+  diagnosticFormId: 'baseline',
   diagnosticCompleted: false,
   diagnosticAnswers: {},
   sectionScores: {

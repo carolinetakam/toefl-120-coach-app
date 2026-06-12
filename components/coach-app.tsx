@@ -8,13 +8,14 @@ import { formatProgressBackup, parseProgressBackup } from '@/lib/backup';
 import { buildRepairNote, getMockQuestionMetadata, getMockTestMetadata, getPracticeCardMetadata } from '@/lib/content-metadata';
 import { dateAfterDays } from '@/lib/dates';
 import { buildPersonalProofGate, getFirstUserLoopSteps, hasUserProgress } from '@/lib/first-user-loop';
+import { getDiagnosticQuestions, getNextDiagnosticFormId } from '@/lib/diagnostic';
 import { applyPracticeOutcome, buildErrorEntry, buildReviewCard, getLocalDateKey, nextInterval, prioritizePracticeCards, readinessScore, scoreDiagnostic, updateStreak, updateSubskillScores } from '@/lib/logic';
 import { evaluateMockAttempt, mockTests, MockQuestion, scoreMockAnswers } from '@/lib/mock-tests';
 import { generateDailyPlan, summarizeDailyPlanTask } from '@/lib/planner';
 import { getSprintNextAction } from '@/lib/repair-path';
 import { generateBlockerSummary, generateRecommendedDrills } from '@/lib/reporting';
 import { evaluateSpeakingAttempt, evaluateWritingAttempt, SkillEvaluation } from '@/lib/scoring';
-import { diagnosticQuestions, initialState, practiceCards, sectionLabels } from '@/lib/seed';
+import { initialState, practiceCards, sectionLabels } from '@/lib/seed';
 import { generateSprintPlan, getSprintMode, getSprintReadinessGates, getTodaySprintDay, sectionPlaybooks, type SprintAction } from '@/lib/sprint';
 import { loadState, resetState, saveState, toPersistableState } from '@/lib/storage';
 import { buildTestWeekCommand, formatFinalTemplateSheet, formatLearnerReadinessReport, generateTestDayPlan, generateTestReadinessReport } from '@/lib/test-readiness';
@@ -326,7 +327,8 @@ export function CoachApp() {
   const currentCard = useMemo(() => {
     return orderedPracticeCards.find((card) => card.id === selectedCardId[section]) ?? orderedPracticeCards[0] ?? practiceCards[section][0];
   }, [orderedPracticeCards, section, selectedCardId]);
-  const currentQuestion = diagnosticQuestions[diagnosticIndex];
+  const currentDiagnosticQuestions = useMemo(() => getDiagnosticQuestions(state.diagnosticFormId), [state.diagnosticFormId]);
+  const currentQuestion = currentDiagnosticQuestions[diagnosticIndex];
   const blockerList = useMemo(() => generateBlockerSummary(state.sectionScores, state.errorLog), [state.errorLog, state.sectionScores]);
   const currentMock = useMemo(() => mockTests.find((mock) => mock.id === currentMockId) ?? mockTests[0], [currentMockId]);
   const currentMiniMockAttempt = useMemo(() => state.miniMockAttempts.find((attempt) => attempt.mockId === currentMock.id), [currentMock.id, state.miniMockAttempts]);
@@ -545,14 +547,14 @@ export function CoachApp() {
 
     const nextAnswers = { ...state.diagnosticAnswers, [currentQuestion.id]: diagnosticChoice };
 
-    if (diagnosticIndex < diagnosticQuestions.length - 1) {
+    if (diagnosticIndex < currentDiagnosticQuestions.length - 1) {
       setState((prev) => ({ ...prev, diagnosticAnswers: nextAnswers }));
       setDiagnosticIndex((prev) => prev + 1);
-      setDiagnosticChoice(nextAnswers[diagnosticQuestions[diagnosticIndex + 1].id] ?? null);
+      setDiagnosticChoice(nextAnswers[currentDiagnosticQuestions[diagnosticIndex + 1].id] ?? null);
       return;
     }
 
-    const result = scoreDiagnostic(nextAnswers);
+    const result = scoreDiagnostic(nextAnswers, currentDiagnosticQuestions);
     const streakUpdate = updateStreak(state.lastActiveDate);
 
     setState((prev) => ({
@@ -572,6 +574,18 @@ export function CoachApp() {
     setDiagnosticStartedAt(null);
     setTab('today');
     setFeedback('Diagnostic saved. Your plan has been updated.');
+  }
+
+  function switchDiagnosticForm() {
+    const nextFormId = getNextDiagnosticFormId(state.diagnosticFormId);
+    setState((prev) => ({
+      ...prev,
+      diagnosticFormId: nextFormId,
+      diagnosticAnswers: {},
+    }));
+    setDiagnosticIndex(0);
+    setDiagnosticChoice(null);
+    setFeedback('Fresh diagnostic form loaded. Use this when you already know the previous answers.');
   }
 
   function selectPracticeCard(card: PracticeCard) {
@@ -1038,7 +1052,7 @@ export function CoachApp() {
     return <div className="shell"><div className="hero">Loading TOEFL 120 Coach...</div></div>;
   }
 
-  const diagnosticProgress = Math.round((Object.keys(state.diagnosticAnswers).length / diagnosticQuestions.length) * 100);
+  const diagnosticProgress = Math.round((Object.keys(state.diagnosticAnswers).length / currentDiagnosticQuestions.length) * 100);
   const selectedObjectiveChoice = submittedChoices[currentCard.id];
   const writingWordCount = countWords(writingDraft);
   const revisionWordCount = countWords(writingRevision);
@@ -1227,6 +1241,7 @@ export function CoachApp() {
             <div className="chips">
               <span className="chip">{diagnosticProgress}% complete</span>
               <span className="chip">Time {formatElapsedSeconds(diagnosticElapsed)}</span>
+              <button className="secondary compactButton" onClick={switchDiagnosticForm}>I know these questions — use fresh form</button>
             </div>
             </div>
           <div className="progressBar"><span style={{ width: `${Math.max(12, diagnosticProgress)}%` }} /></div>
@@ -1244,7 +1259,7 @@ export function CoachApp() {
                   </button>
                 ))}
               </div>
-              <button className="cta" disabled={diagnosticChoice === null} onClick={submitDiagnostic}>{diagnosticIndex < diagnosticQuestions.length - 1 ? 'Next question' : 'Finish diagnostic'}</button>
+              <button className="cta" disabled={diagnosticChoice === null} onClick={submitDiagnostic}>{diagnosticIndex < currentDiagnosticQuestions.length - 1 ? 'Next question' : 'Finish diagnostic'}</button>
             </div>
           )}
         </section>

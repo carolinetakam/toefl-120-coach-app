@@ -54,6 +54,11 @@ function sanitizeDiagnosticAnswers(value: unknown) {
   ) as Record<string, number>;
 }
 
+function sanitizeDiagnosticFormId(value: unknown) {
+  const formId = asString(value, initialState.diagnosticFormId);
+  return formId === 'baseline' || formId === 'fresh-beta' ? formId : initialState.diagnosticFormId;
+}
+
 function sanitizeReviewQueue(value: unknown): ReviewCard[] {
   if (!Array.isArray(value)) return initialState.reviewQueue;
   return value
@@ -182,6 +187,7 @@ export function sanitizeAppState(value: unknown): AppState {
         {} as Record<Section, number>,
       ),
     },
+    diagnosticFormId: sanitizeDiagnosticFormId(value.diagnosticFormId),
     diagnosticCompleted: asBoolean(value.diagnosticCompleted, initialState.diagnosticCompleted),
     diagnosticAnswers: sanitizeDiagnosticAnswers(value.diagnosticAnswers),
     sectionScores: sanitizeSectionScores(value.sectionScores, initialState.sectionScores),

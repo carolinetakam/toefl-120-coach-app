@@ -109,6 +109,7 @@ export interface MiniMockAttempt {
 export interface AppState {
   onboarded: boolean;
   profile: UserProfile;
+  diagnosticFormId: string;
   diagnosticCompleted: boolean;
   diagnosticAnswers: Record<string, number>;
   sectionScores: Record<Section, number>;

@@ -49,6 +49,7 @@ export const appState = v.object({
       writing: v.number(),
     }),
   }),
+  diagnosticFormId: v.string(),
   diagnosticCompleted: v.boolean(),
   diagnosticAnswers: v.record(v.string(), v.number()),
   sectionScores: v.object({

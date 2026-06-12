@@ -1,7 +1,7 @@
 import { diagnosticQuestions, practiceCards } from '@/lib/seed';
 import { buildRepairNote, getPracticeCardMetadata } from '@/lib/content-metadata';
 import { getLocalDateKey } from '@/lib/dates';
-import { AppState, ErrorEntry, PracticeCard, ReviewCard, Section, Track } from '@/lib/types';
+import { AppState, DiagnosticQuestion, ErrorEntry, PracticeCard, ReviewCard, Section, Track } from '@/lib/types';
 
 export function clamp(value: number, min = 0, max = 1) {
   return Math.min(max, Math.max(min, value));
@@ -15,7 +15,7 @@ export function getTrack(sectionScores: Record<Section, number>): Track {
   return 'Test-readiness';
 }
 
-export function scoreDiagnostic(answers: Record<string, number>) {
+export function scoreDiagnostic(answers: Record<string, number>, questions: DiagnosticQuestion[] = diagnosticQuestions) {
   const sectionTotals: Record<Section, { correct: number; total: number }> = {
     reading: { correct: 0, total: 0 },
     listening: { correct: 0, total: 0 },
@@ -25,7 +25,7 @@ export function scoreDiagnostic(answers: Record<string, number>) {
 
   const subskillScores: Record<string, number> = {};
 
-  diagnosticQuestions.forEach((question) => {
+  questions.forEach((question) => {
     const picked = answers[question.id];
     const correct = picked === question.answer ? 1 : 0;
     sectionTotals[question.section].correct += correct;
