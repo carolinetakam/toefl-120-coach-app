@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getSprintNextAction } from '@/lib/repair-path';
+import { getSprintNextAction, requireRepairPracticeCard } from '@/lib/repair-path';
 import { initialState } from '@/lib/seed';
 
 describe('sprint repair path', () => {
@@ -108,5 +108,9 @@ describe('sprint repair path', () => {
       type: 'mock',
       mockId: 'mock-river-archive-2',
     });
+  });
+
+  it('fails loudly when a repair recommendation has no approved practice card mapping', () => {
+    expect(() => requireRepairPracticeCard('reading', 'unapproved generated subskill')).toThrow(/Missing approved repair practice card/i);
   });
 });

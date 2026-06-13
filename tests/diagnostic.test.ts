@@ -28,6 +28,10 @@ describe('diagnostic form rotation', () => {
     expect(getNextDiagnosticFormId('fresh-beta')).toBe('baseline');
   });
 
+  it('alternates the diagnostic form on each completion', () => {
+    expect(getNextDiagnosticFormId(getNextDiagnosticFormId('baseline'))).toBe('baseline');
+  });
+
   it('scores the selected diagnostic form rather than the baseline only', () => {
     const result = scoreDiagnostic(perfectAnswers('fresh-beta'), getDiagnosticQuestions('fresh-beta'));
 

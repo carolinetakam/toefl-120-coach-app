@@ -8,29 +8,29 @@ function isObject(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
-function asString(value: unknown, fallback = '') {
-  return typeof value === 'string' ? value : fallback;
+function asString(value: unknown, defaultValue = '') {
+  return typeof value === 'string' ? value : defaultValue;
 }
 
-function asBoolean(value: unknown, fallback = false) {
-  return typeof value === 'boolean' ? value : fallback;
+function asBoolean(value: unknown, defaultValue = false) {
+  return typeof value === 'boolean' ? value : defaultValue;
 }
 
-function asNumber(value: unknown, fallback: number, min = 0, max = Number.MAX_SAFE_INTEGER) {
-  return typeof value === 'number' && Number.isFinite(value) ? Math.min(max, Math.max(min, value)) : fallback;
+function asNumber(value: unknown, defaultValue: number, min = 0, max = Number.MAX_SAFE_INTEGER) {
+  return typeof value === 'number' && Number.isFinite(value) ? Math.min(max, Math.max(min, value)) : defaultValue;
 }
 
-function asDateString(value: unknown, fallback: string) {
-  const text = asString(value, fallback);
-  return Number.isNaN(new Date(text).getTime()) ? fallback : text;
+function asDateString(value: unknown, defaultValue: string) {
+  const text = asString(value, defaultValue);
+  return Number.isNaN(new Date(text).getTime()) ? defaultValue : text;
 }
 
-function sanitizeSectionScores(value: unknown, fallback: Record<Section, number>) {
+function sanitizeSectionScores(value: unknown, defaultValue: Record<Section, number>) {
   const source = isObject(value) ? value : {};
   return sections.reduce(
     (scores, section) => ({
       ...scores,
-      [section]: asNumber(source[section], fallback[section], 0, 1),
+      [section]: asNumber(source[section], defaultValue[section], 0, 1),
     }),
     {} as Record<Section, number>,
   );

@@ -612,6 +612,48 @@ button.sectionCard.selectedCard {
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent), transparent 76%), var(--shadow-card);
 }
 
+.pathCard {
+  position: relative;
+  overflow: hidden;
+}
+
+.pathCard-current {
+  border-color: color-mix(in srgb, var(--accent), white 56%);
+  background: linear-gradient(145deg, color-mix(in srgb, var(--accent), white 91%), var(--surface-raised));
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent), transparent 78%), var(--shadow-card);
+}
+
+.pathCard-completed {
+  border-color: color-mix(in srgb, var(--success), white 62%);
+  background: color-mix(in srgb, var(--success), white 94%);
+}
+
+.pathCard-available-optional {
+  border-color: color-mix(in srgb, var(--accent-2), white 58%);
+  background: linear-gradient(145deg, color-mix(in srgb, var(--accent-2), white 91%), var(--surface-raised));
+}
+
+.pathCard-locked {
+  color: var(--muted);
+  background: color-mix(in srgb, var(--surface-soft), white 48%);
+  box-shadow: var(--shadow-inset);
+}
+
+.pathCard-locked h3,
+.pathCard-locked .copy {
+  color: var(--muted);
+}
+
+.pathUnlockReason {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.lockedReason {
+  color: var(--bad);
+}
+
 .subPanel {
   padding: 18px;
   border-radius: var(--radius-card);

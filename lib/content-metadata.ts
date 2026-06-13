@@ -4,7 +4,7 @@ import { ContentMetadata, PracticeCard, Section } from '@/lib/types';
 
 type MetadataTemplate = Omit<ContentMetadata, 'contentId' | 'section'>;
 
-const fallbackBySection: Record<Section, Omit<ContentMetadata, 'contentId' | 'section' | 'questionType'>> = {
+const sectionMetadataProfiles: Record<Section, Omit<ContentMetadata, 'contentId' | 'section' | 'questionType'>> = {
   reading: {
     taskType: 'read_academic_passage',
     strategyCardId: 'R-003',
@@ -157,6 +157,13 @@ const subskillTemplates: Record<string, Partial<MetadataTemplate>> = {
     cue: 'Use sparse labels for purpose, examples, contrast, attitude, and decisions.',
     repairRule: 'Redo notes with only symbols and short labels, then answer one question.',
   },
+  'cause and effect': {
+    questionType: 'listening_relationship',
+    strategyCardId: 'L-007',
+    traps: ['recording events without their relationship', 'missing signal words for result or reason'],
+    cue: 'Mark cause arrows quickly: change -> effect -> evidence.',
+    repairRule: 'Redo one listening card and label each reason/effect pair before choosing an answer.',
+  },
   fluency: {
     questionType: 'independent_speaking',
     strategyCardId: 'S-001',
@@ -170,6 +177,34 @@ const subskillTemplates: Record<string, Partial<MetadataTemplate>> = {
     traps: ['long opening', 'rushed ending'],
     cue: 'Cut setup first; protect the final sentence.',
     repairRule: 'Record with a 10-second opening limit and one stronger support point.',
+  },
+  'response structure': {
+    questionType: 'integrated_speaking_structure',
+    strategyCardId: 'S-003',
+    traps: ['jumping between examples', 'missing the source order'],
+    cue: 'Open with the main idea, then follow the source order with one example at a time.',
+    repairRule: 'Record a redo that uses source order labels before each example.',
+  },
+  'clarity/pronunciation': {
+    questionType: 'speaking_delivery',
+    strategyCardId: 'S-004',
+    traps: ['dropping final sounds', 'speaking too fast under stress'],
+    cue: 'Slow slightly on key nouns and finish every final word audibly.',
+    repairRule: 'Record a delivery redo and mark two words that became clearer.',
+  },
+  'source integration': {
+    questionType: 'integrated_speaking_sources',
+    strategyCardId: 'S-003',
+    traps: ['adding personal opinion', 'missing the recommended solution or reason'],
+    cue: 'Name the problem, the recommendation, and the reason without adding opinion.',
+    repairRule: 'Redo one integrated speaking answer using problem -> solution -> reason.',
+  },
+  'mock speaking': {
+    questionType: 'mini_mock_speaking',
+    strategyCardId: 'S-003',
+    traps: ['treating notes as a script', 'missing the source relationship under timing'],
+    cue: 'Answer in a compact source order and keep the final sentence complete.',
+    repairRule: 'Redo the mini mock speaking prompt with problem/source order labels first.',
   },
   'integrated synthesis': {
     questionType: 'integrated_writing',
@@ -208,37 +243,63 @@ const subskillTemplates: Record<string, Partial<MetadataTemplate>> = {
     cue: 'Use a revision pass for repeated grammar patterns, not just spelling.',
     repairRule: 'List the two grammar patterns you corrected and rewrite two sentences.',
   },
+  structure: {
+    questionType: 'writing_structure',
+    strategyCardId: 'W-002',
+    traps: ['unclear thesis', 'body paragraphs without a visible job'],
+    cue: 'Give each paragraph one job and make the task connection explicit.',
+    repairRule: 'Rewrite the outline as thesis plus one sentence job for each body paragraph.',
+  },
 };
 
-function withDefaults(contentId: string, section: Section, subskill: string, overrides: Partial<MetadataTemplate> = {}): ContentMetadata {
-  const fallback = fallbackBySection[section];
-  const subskillTemplate = subskillTemplates[subskill] ?? {};
+function requireSubskillTemplate(contentId: string, subskill: string, overrides: Partial<MetadataTemplate>) {
+  const subskillTemplate = subskillTemplates[subskill];
+  const hasCompleteExplicitMetadata = Boolean(
+    overrides.taskType &&
+      overrides.questionType &&
+      overrides.strategyCardId &&
+      overrides.difficultyBand &&
+      overrides.timingSeconds &&
+      overrides.traps &&
+      overrides.cue &&
+      overrides.repairRule,
+  );
+
+  if (!subskillTemplate && !hasCompleteExplicitMetadata) {
+    throw new Error(`Missing approved metadata for ${contentId} (${subskill}). Add a reviewed subskill template before exposing this content.`);
+  }
+  return subskillTemplate ?? {};
+}
+
+function buildApprovedMetadata(contentId: string, section: Section, subskill: string, overrides: Partial<MetadataTemplate> = {}): ContentMetadata {
+  const sectionProfile = sectionMetadataProfiles[section];
+  const subskillTemplate = requireSubskillTemplate(contentId, subskill, overrides);
 
   return {
     contentId,
     section,
-    taskType: overrides.taskType ?? subskillTemplate.taskType ?? fallback.taskType,
+    taskType: overrides.taskType ?? subskillTemplate.taskType ?? sectionProfile.taskType,
     questionType: overrides.questionType ?? subskillTemplate.questionType ?? subskill,
-    strategyCardId: overrides.strategyCardId ?? subskillTemplate.strategyCardId ?? fallback.strategyCardId,
-    difficultyBand: overrides.difficultyBand ?? subskillTemplate.difficultyBand ?? fallback.difficultyBand,
-    timingSeconds: overrides.timingSeconds ?? subskillTemplate.timingSeconds ?? fallback.timingSeconds,
-    traps: overrides.traps ?? subskillTemplate.traps ?? fallback.traps,
-    cue: overrides.cue ?? subskillTemplate.cue ?? fallback.cue,
-    repairRule: overrides.repairRule ?? subskillTemplate.repairRule ?? fallback.repairRule,
+    strategyCardId: overrides.strategyCardId ?? subskillTemplate.strategyCardId ?? sectionProfile.strategyCardId,
+    difficultyBand: overrides.difficultyBand ?? subskillTemplate.difficultyBand ?? sectionProfile.difficultyBand,
+    timingSeconds: overrides.timingSeconds ?? subskillTemplate.timingSeconds ?? sectionProfile.timingSeconds,
+    traps: overrides.traps ?? subskillTemplate.traps ?? sectionProfile.traps,
+    cue: overrides.cue ?? subskillTemplate.cue ?? sectionProfile.cue,
+    repairRule: overrides.repairRule ?? subskillTemplate.repairRule ?? sectionProfile.repairRule,
     sourceType: 'approved_seed',
     reviewStatus: 'approved',
   };
 }
 
 export const practiceCardMetadata: Record<string, ContentMetadata> = Object.fromEntries(
-  Object.values(practiceCards).flatMap((cards) => cards.map((card) => [card.id, withDefaults(card.id, card.section, card.subskill)])),
+  Object.values(practiceCards).flatMap((cards) => cards.map((card) => [card.id, buildApprovedMetadata(card.id, card.section, card.subskill)])),
 );
 
 export const mockQuestionMetadata: Record<string, ContentMetadata> = Object.fromEntries(
   mockTests.flatMap((mock) =>
     mock.questions.map((question) => [
       question.id,
-      withDefaults(question.id, question.section, question.subskill, {
+      buildApprovedMetadata(question.id, question.section, question.subskill, {
         taskType: question.section === 'reading' ? 'mini_mock_reading_question' : 'mini_mock_listening_question',
         timingSeconds: 75,
       }),
@@ -249,7 +310,7 @@ export const mockQuestionMetadata: Record<string, ContentMetadata> = Object.from
 export const mockTestMetadata: Record<string, ContentMetadata> = Object.fromEntries(
   mockTests.map((mock) => [
     mock.id,
-    withDefaults(mock.id, 'listening', 'mini mock', {
+    buildApprovedMetadata(mock.id, 'listening', 'mini mock', {
       taskType: 'mini_mockup',
       questionType: 'mixed_section_mockup',
       strategyCardId: 'mixed-approved-seed-mini-mockup',
@@ -263,15 +324,27 @@ export const mockTestMetadata: Record<string, ContentMetadata> = Object.fromEntr
 );
 
 export function getPracticeCardMetadata(card: PracticeCard) {
-  return practiceCardMetadata[card.id] ?? withDefaults(card.id, card.section, card.subskill);
+  const metadata = practiceCardMetadata[card.id];
+  if (!metadata) {
+    throw new Error(`Missing approved metadata for ${card.id}. Add it to the registry before exposing this practice card.`);
+  }
+  return metadata;
 }
 
 export function getMockQuestionMetadata(question: MockQuestion) {
-  return mockQuestionMetadata[question.id] ?? withDefaults(question.id, question.section, question.subskill);
+  const metadata = mockQuestionMetadata[question.id];
+  if (!metadata) {
+    throw new Error(`Missing approved metadata for ${question.id}. Add it to the registry before exposing this mock question.`);
+  }
+  return metadata;
 }
 
 export function getMockTestMetadata(testId: string) {
-  return mockTestMetadata[testId];
+  const metadata = mockTestMetadata[testId];
+  if (!metadata) {
+    throw new Error(`Missing approved metadata for ${testId}. Add it to the registry before exposing this mini mock.`);
+  }
+  return metadata;
 }
 
 export function buildRepairNote(metadata: ContentMetadata) {

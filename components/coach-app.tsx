@@ -12,11 +12,13 @@ import { getDiagnosticQuestions, getNextDiagnosticFormId } from '@/lib/diagnosti
 import { applyPracticeOutcome, buildErrorEntry, buildReviewCard, getLocalDateKey, nextInterval, prioritizePracticeCards, readinessScore, scoreDiagnostic, updateStreak, updateSubskillScores } from '@/lib/logic';
 import { evaluateMockAttempt, mockTests, MockQuestion, scoreMockAnswers } from '@/lib/mock-tests';
 import { generateDailyPlan, summarizeDailyPlanTask } from '@/lib/planner';
-import { getSprintNextAction } from '@/lib/repair-path';
+import { getSprintNextAction, type SprintNextAction } from '@/lib/repair-path';
 import { generateBlockerSummary, generateRecommendedDrills } from '@/lib/reporting';
 import { evaluateSpeakingAttempt, evaluateWritingAttempt, SkillEvaluation } from '@/lib/scoring';
+import { resolveMockSelection, resolvePracticeCardSelection } from '@/lib/selection-recovery';
 import { initialState, practiceCards, sectionLabels } from '@/lib/seed';
-import { generateSprintPlan, getSprintMode, getSprintReadinessGates, getTodaySprintDay, sectionPlaybooks, type SprintAction } from '@/lib/sprint';
+import { getSprintMode, getTodaySprintDay, sectionPlaybooks, type SprintAction } from '@/lib/sprint';
+import { buildPathDayViews, canAccessFullLibrary, canAccessMock, getTodayMission, type PathDayView, type UnlockStatus } from '@/lib/progression';
 import { loadState, resetState, saveState, toPersistableState } from '@/lib/storage';
 import { buildTestWeekCommand, formatFinalTemplateSheet, formatLearnerReadinessReport, generateTestDayPlan, generateTestReadinessReport } from '@/lib/test-readiness';
 import { elapsedSeconds, formatElapsedSeconds } from '@/lib/timing';
@@ -24,15 +26,14 @@ import { AppState, DailyTask, MiniMockAttempt, PracticeCard, ReviewCard, Section
 import { sanitizeAppState } from '@/lib/validation';
 import { buildFounderLaunchGate, defaultLaunchSmokeChecks, launchSmokeCheckDefinitions, type LaunchReadinessAudit, type LaunchSmokeChecks, type LaunchSmokeCheckKey } from '@/lib/launch-readiness';
 
-type TabKey = 'today' | 'practice' | 'mock' | 'review' | 'errors' | 'dashboard';
+type TabKey = 'today' | 'path' | 'review' | 'progress' | 'library';
 
 const tabs: Array<{ key: TabKey; label: string }> = [
   { key: 'today', label: 'Today' },
-  { key: 'practice', label: 'Practice' },
-  { key: 'mock', label: 'Mock' },
+  { key: 'path', label: 'Path' },
   { key: 'review', label: 'Review' },
-  { key: 'errors', label: 'Errors' },
-  { key: 'dashboard', label: 'Dashboard' },
+  { key: 'progress', label: 'Progress' },
+  { key: 'library', label: 'Library' },
 ];
 
 const sectionOrder: Section[] = ['reading', 'listening', 'speaking', 'writing'];
@@ -40,6 +41,24 @@ const speakingChecks = ['Clear main idea', 'Source detail included', 'Finished c
 const diagnosticStartedAtKey = 'toefl-120-coach-diagnostic-started-at';
 const launchSmokeChecksKey = 'toefl-120-coach-launch-smoke-checks';
 const speakingRecordingLimitSeconds = 60;
+
+const pathStatusLabels: Record<UnlockStatus, string> = {
+  completed: '✓ Completed',
+  current: 'Current mission',
+  locked: 'Locked',
+  available_optional: 'Optional sprint override',
+};
+
+const pathStatusBadgeClass: Record<UnlockStatus, string> = {
+  completed: 'pill-good',
+  current: 'pill-warn',
+  locked: 'chip',
+  available_optional: 'pill-good',
+};
+
+function pathStatusClass(status: UnlockStatus) {
+  return `pathCard-${status.replace('_', '-')}`;
+}
 
 function formatPercent(value: number) {
   return `${Math.round(value * 100)}%`;
@@ -51,9 +70,9 @@ function getStatusPill(value: number) {
   return 'pill-bad';
 }
 
-function normalizeNumber(value: string, fallback: number, min: number, max: number) {
+function normalizeNumber(value: string, defaultValue: number, min: number, max: number) {
   const parsed = Number(value);
-  if (!Number.isFinite(parsed)) return fallback;
+  if (!Number.isFinite(parsed)) return defaultValue;
   return Math.min(max, Math.max(min, parsed));
 }
 
@@ -128,6 +147,38 @@ function upsertMiniMockAttempt(attempts: MiniMockAttempt[], next: MiniMockAttemp
   return [next, ...attempts.filter((attempt) => attempt.mockId !== next.mockId)].slice(0, 20);
 }
 
+function buildDiagnosticRepairReveal(
+  result: ReturnType<typeof scoreDiagnostic>,
+  answers: Record<string, number>,
+  questions: ReturnType<typeof getDiagnosticQuestions>,
+) {
+  const missedQuestion = questions.find((question) => answers[question.id] !== question.answer);
+
+  if (!missedQuestion) {
+    return 'Your first repair target: no diagnostic miss found. Why: all answered diagnostic strategy items were correct, so Day 1 starts with real speaking and writing evidence. Start Day 1.';
+  }
+
+  const sectionScore = Math.round(result.sectionScores[missedQuestion.section] * 100);
+  return `Your first repair target: ${sectionLabels[missedQuestion.section]}/${missedQuestion.subskill}. Why: the diagnostic missed this strategy item and ${sectionLabels[missedQuestion.section]} is at ${sectionScore}%. Start Day 1.`;
+}
+
+function buildDailyMissionReveal(prev: AppState, next: AppState) {
+  if (!prev.diagnosticCompleted || !next.diagnosticCompleted) return '';
+
+  const beforeDays = buildPathDayViews(prev);
+  const afterDays = buildPathDayViews(next);
+  const beforeCurrent = beforeDays.find((day) => day.status === 'current');
+  if (!beforeCurrent) return '';
+
+  const afterSameDay = afterDays.find((day) => day.day === beforeCurrent.day);
+  const afterNextDay = afterDays.find((day) => day.day === beforeCurrent.day + 1);
+
+  if (afterSameDay?.status !== 'completed' || !afterNextDay) return '';
+  if (afterNextDay.status !== 'current' && afterNextDay.status !== 'available_optional') return '';
+
+  return `Day ${beforeCurrent.day} complete. You unlocked Day ${afterNextDay.day}: ${afterNextDay.title}.`;
+}
+
 function latestMiniMockAttempt(attempts: MiniMockAttempt[]) {
   return [...attempts].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())[0];
 }
@@ -181,6 +232,7 @@ export function CoachApp() {
   const [showReadinessReportText, setShowReadinessReportText] = useState(false);
   const [showFinalTemplateSheet, setShowFinalTemplateSheet] = useState(false);
   const [showBackupText, setShowBackupText] = useState(false);
+  const [showFullLibrary, setShowFullLibrary] = useState(false);
   const [backupImportText, setBackupImportText] = useState('');
   const [showMockTranscript, setShowMockTranscript] = useState(false);
   const [revealedReviewIds, setRevealedReviewIds] = useState<Record<string, boolean>>({});
@@ -302,10 +354,8 @@ export function CoachApp() {
   }, [isSignedIn, ready, saveConvexState, state, syncReady]);
 
   const dailyPlan = useMemo(() => generateDailyPlan(state), [state]);
-  const sprintPlan = useMemo(() => generateSprintPlan(state), [state]);
   const todaySprint = useMemo(() => getTodaySprintDay(state), [state]);
   const sprintMode = useMemo(() => getSprintMode(state), [state]);
-  const sprintGates = useMemo(() => getSprintReadinessGates(state), [state]);
   const testReadinessReport = useMemo(() => generateTestReadinessReport(state), [state]);
   const testDayPlan = useMemo(() => generateTestDayPlan(state), [state]);
   const testWeekCommand = useMemo(() => buildTestWeekCommand(state), [state]);
@@ -324,13 +374,13 @@ export function CoachApp() {
     () => new Set(generateRecommendedDrills(orderedPracticeCards, state.sectionScores, state.subskillScores, 1).map((drill) => drill.cardId)),
     [orderedPracticeCards, state.sectionScores, state.subskillScores],
   );
-  const currentCard = useMemo(() => {
-    return orderedPracticeCards.find((card) => card.id === selectedCardId[section]) ?? orderedPracticeCards[0] ?? practiceCards[section][0];
-  }, [orderedPracticeCards, section, selectedCardId]);
+  const currentCardSelection = useMemo(() => resolvePracticeCardSelection(orderedPracticeCards, selectedCardId[section], section), [orderedPracticeCards, section, selectedCardId]);
+  const currentCard = currentCardSelection.item;
   const currentDiagnosticQuestions = useMemo(() => getDiagnosticQuestions(state.diagnosticFormId), [state.diagnosticFormId]);
   const currentQuestion = currentDiagnosticQuestions[diagnosticIndex];
   const blockerList = useMemo(() => generateBlockerSummary(state.sectionScores, state.errorLog), [state.errorLog, state.sectionScores]);
-  const currentMock = useMemo(() => mockTests.find((mock) => mock.id === currentMockId) ?? mockTests[0], [currentMockId]);
+  const currentMockSelection = useMemo(() => resolveMockSelection(mockTests, currentMockId), [currentMockId]);
+  const currentMock = currentMockSelection.item;
   const currentMiniMockAttempt = useMemo(() => state.miniMockAttempts.find((attempt) => attempt.mockId === currentMock.id), [currentMock.id, state.miniMockAttempts]);
   const currentMockMetadata = useMemo(() => getMockTestMetadata(currentMock.id), [currentMock.id]);
   const mockScore = useMemo(() => scoreMockAnswers(currentMock, mockAnswers), [currentMock, mockAnswers]);
@@ -338,10 +388,31 @@ export function CoachApp() {
   const currentPlaybook = sectionPlaybooks[section];
   const hasSpeakingAudioEvidence = state.speakingAttempts.some((attempt) => attempt.hasAudioEvidence);
   const sprintNextAction = useMemo(() => getSprintNextAction(state), [state]);
+  const pathDayViews = useMemo(() => buildPathDayViews(state), [state]);
+  const todayMission = useMemo(() => getTodayMission(state), [state]);
+  const miniMockGate = useMemo(() => canAccessMock(state), [state]);
+  const fullLibraryGate = useMemo(() => canAccessFullLibrary(state), [state]);
+  const optionalMockOverride = useMemo(
+    () => pathDayViews.some((day) => day.status === 'available_optional' && day.actions.some((action) => action.type === 'mock' && action.mockId === currentMock.id)),
+    [currentMock.id, pathDayViews],
+  );
+  const canShowMiniMock = miniMockGate.allowed || optionalMockOverride;
   const mockElapsed = mockStartedAt ? elapsedSeconds(mockStartedAt, clockNow) + mockElapsedSnapshot : mockElapsedSnapshot;
   const mockLimitSeconds = currentMock.minutes * 60;
   const mockTimeRemaining = Math.max(0, mockLimitSeconds - mockElapsed);
   const mockTimed = mockElapsed > 0;
+
+  useEffect(() => {
+    if (!currentCardSelection.recoveryMessage) return;
+    setSelectedCardId((prev) => ({ ...prev, [section]: currentCard.id }));
+    setFeedback(currentCardSelection.recoveryMessage);
+  }, [currentCard.id, currentCardSelection.recoveryMessage, section]);
+
+  useEffect(() => {
+    if (!currentMockSelection.recoveryMessage) return;
+    setCurrentMockId(currentMock.id);
+    setFeedback(currentMockSelection.recoveryMessage);
+  }, [currentMock.id, currentMockSelection.recoveryMessage]);
 
   useEffect(() => {
     if (!ready || !syncReady || restoredMockSelectionRef.current) return;
@@ -512,6 +583,7 @@ export function CoachApp() {
     setDiagnosticStartedAt(startedAt);
     setClockNow(startedAt);
     setState((prev) => ({ ...prev, onboarded: true }));
+    setFeedback('Your TOEFL path is ready. First, we’ll find your fastest score improvement area.');
   }
 
   function openAccountSignIn() {
@@ -556,24 +628,26 @@ export function CoachApp() {
 
     const result = scoreDiagnostic(nextAnswers, currentDiagnosticQuestions);
     const streakUpdate = updateStreak(state.lastActiveDate);
-
-    setState((prev) => ({
-      ...prev,
+    const nextState: AppState = {
+      ...state,
       diagnosticAnswers: nextAnswers,
       diagnosticCompleted: true,
+      diagnosticFormId: getNextDiagnosticFormId(state.diagnosticFormId),
       sectionScores: result.sectionScores,
       subskillScores: result.subskillScores,
       track: result.track,
-      xp: prev.xp + 80,
-      streak: streakUpdate === 'increment' ? prev.streak + 1 : streakUpdate === 'reset' ? 1 : Math.max(prev.streak, 1),
+      xp: state.xp + 80,
+      streak: streakUpdate === 'increment' ? state.streak + 1 : streakUpdate === 'reset' ? 1 : Math.max(state.streak, 1),
       lastActiveDate: getLocalDateKey(),
-    }));
+    };
+
+    setState(nextState);
     if (typeof window !== 'undefined') {
       window.localStorage.removeItem(diagnosticStartedAtKey);
     }
     setDiagnosticStartedAt(null);
     setTab('today');
-    setFeedback('Diagnostic saved. Your plan has been updated.');
+    setFeedback(buildDiagnosticRepairReveal(result, nextAnswers, currentDiagnosticQuestions));
   }
 
   function switchDiagnosticForm() {
@@ -603,37 +677,40 @@ export function CoachApp() {
     const streakUpdate = updateStreak(state.lastActiveDate);
     const metadata = getPracticeCardMetadata(card);
 
-    setState((prev) => {
-      const existingError = prev.errorLog.find((entry) => entry.section === card.section && entry.subskill === card.subskill && entry.prompt === card.title && !entry.corrected);
-      const mergedErrorLog = errorEntry
-        ? existingError
-          ? prev.errorLog.map((entry) =>
-              entry === existingError
-                ? { ...entry, repeatCount: entry.repeatCount + 1, lastSeen: now, dueDate: new Date(Date.now() + 86400000).toISOString() }
-                : entry,
-            )
-          : [errorEntry, ...prev.errorLog]
-        : prev.errorLog.map((entry) =>
-            entry.section === card.section && entry.subskill === card.subskill ? { ...entry, corrected: true, lastSeen: now } : entry,
-          );
+    const nextState: AppState = {
+      ...state,
+      sectionScores: applyPracticeOutcome(state, card.section, card.subskill, score, supported),
+      subskillScores: updateSubskillScores(state.subskillScores, card.subskill, score),
+      xp: state.xp + card.xp,
+      streak: streakUpdate === 'increment' ? state.streak + 1 : streakUpdate === 'reset' ? 1 : Math.max(state.streak, 1),
+      lastActiveDate: getLocalDateKey(),
+      reviewQueue: [reviewCard, ...state.reviewQueue],
+      errorLog: (() => {
+        const existingError = state.errorLog.find((entry) => entry.section === card.section && entry.subskill === card.subskill && entry.prompt === card.title && !entry.corrected);
+        if (errorEntry) {
+          return existingError
+            ? state.errorLog.map((entry) =>
+                entry === existingError
+                  ? { ...entry, repeatCount: entry.repeatCount + 1, lastSeen: now, dueDate: new Date(Date.now() + 86400000).toISOString() }
+                  : entry,
+              )
+            : [errorEntry, ...state.errorLog];
+        }
 
-      return {
-        ...prev,
-        sectionScores: applyPracticeOutcome(prev, card.section, card.subskill, score, supported),
-        subskillScores: updateSubskillScores(prev.subskillScores, card.subskill, score),
-        xp: prev.xp + card.xp,
-        streak: streakUpdate === 'increment' ? prev.streak + 1 : streakUpdate === 'reset' ? 1 : Math.max(prev.streak, 1),
-        lastActiveDate: getLocalDateKey(),
-        reviewQueue: [reviewCard, ...prev.reviewQueue],
-        errorLog: mergedErrorLog,
-        practiceHistory: [
-          { id: `${card.id}-${now}`, section: card.section, subskill: card.subskill, score, completedAt: now, notes, supported },
-          ...prev.practiceHistory,
-        ].slice(0, 40),
-      };
-    });
+        return state.errorLog.map((entry) =>
+          entry.section === card.section && entry.subskill === card.subskill ? { ...entry, corrected: true, lastSeen: now } : entry,
+        );
+      })(),
+      practiceHistory: [
+        { id: `${card.id}-${now}`, section: card.section, subskill: card.subskill, score, completedAt: now, notes, supported },
+        ...state.practiceHistory,
+      ].slice(0, 40),
+    };
 
-    setFeedback(correct ? `Strong work. ${metadata.cue} ${card.explanation}` : `Logged for repair. ${buildRepairNote(metadata)}`);
+    setState(nextState);
+
+    const reveal = buildDailyMissionReveal(state, nextState);
+    setFeedback(reveal || (correct ? `Strong work. ${metadata.cue} ${card.explanation}` : `Logged for repair. ${buildRepairNote(metadata)}`));
   }
 
   function submitChoice(card: PracticeCard, choice: number) {
@@ -653,14 +730,14 @@ export function CoachApp() {
     const supported = evaluation.band !== 'ready';
     const streakUpdate = updateStreak(state.lastActiveDate);
 
-    setState((prev) => ({
-      ...prev,
-      sectionScores: applyPracticeOutcome(prev, 'writing', card.subskill, score, supported),
-      subskillScores: updateSubskillScores(prev.subskillScores, card.subskill, score),
-      xp: prev.xp + card.xp + (writingRevision.trim() ? 8 : 0),
-      streak: streakUpdate === 'increment' ? prev.streak + 1 : streakUpdate === 'reset' ? 1 : Math.max(prev.streak, 1),
+    const nextState: AppState = {
+      ...state,
+      sectionScores: applyPracticeOutcome(state, 'writing', card.subskill, score, supported),
+      subskillScores: updateSubskillScores(state.subskillScores, card.subskill, score),
+      xp: state.xp + card.xp + (writingRevision.trim() ? 8 : 0),
+      streak: streakUpdate === 'increment' ? state.streak + 1 : streakUpdate === 'reset' ? 1 : Math.max(state.streak, 1),
       lastActiveDate: getLocalDateKey(),
-      reviewQueue: [buildReviewCard(card), ...prev.reviewQueue],
+      reviewQueue: [buildReviewCard(card), ...state.reviewQueue],
       practiceHistory: [
         {
           id: `${card.id}-${Date.now()}`,
@@ -671,16 +748,19 @@ export function CoachApp() {
           notes: supported ? 'Draft only' : 'Draft and revision',
           supported,
         },
-        ...prev.practiceHistory,
+        ...state.practiceHistory,
       ].slice(0, 40),
       writingDrafts: [
         { promptId: card.id, draft: writingDraft, revision: writingRevision, score },
-        ...prev.writingDrafts.filter((entry) => entry.promptId !== card.id),
+        ...state.writingDrafts.filter((entry) => entry.promptId !== card.id),
       ],
-    }));
+    };
+
+    setState(nextState);
 
     setLastWritingEvaluation(evaluation);
-    setFeedback(`${evaluation.summary} Repair: ${evaluation.repairs[0]}`);
+    const reveal = buildDailyMissionReveal(state, nextState);
+    setFeedback(reveal || `${evaluation.summary} Repair: ${evaluation.repairs[0]}`);
   }
 
   async function startRecording() {
@@ -774,22 +854,30 @@ export function CoachApp() {
     setFeedback('Mini mock timer reset. Start it again when you are ready to work under pressure.');
   }
 
+  function requireSprintPracticeCard(action: Extract<SprintAction | SprintNextAction, { type: 'practice' }>) {
+    const card = practiceCards[action.section].find((item) => item.id === action.cardId);
+    if (!card) {
+      throw new Error(`Sprint action references missing practice card ${action.cardId}.`);
+    }
+    return card;
+  }
+
   function startSprintNextAction() {
     if (sprintNextAction.type === 'mock') {
       selectMock(sprintNextAction.mockId);
-      setTab('mock');
+      setTab('path');
       return;
     }
 
-    const card = practiceCards[sprintNextAction.section].find((item) => item.id === sprintNextAction.cardId) ?? practiceCards[sprintNextAction.section][0];
+    const card = requireSprintPracticeCard(sprintNextAction);
     selectPracticeCard(card);
-    setTab('practice');
+    setTab('library');
   }
 
   function startSprintAction(action: SprintAction) {
     if (action.type === 'mock') {
       selectMock(action.mockId);
-      setTab('mock');
+      setTab('path');
       return;
     }
 
@@ -802,10 +890,37 @@ export function CoachApp() {
       return;
     }
 
-    const card = practiceCards[action.section].find((item) => item.id === action.cardId) ?? practiceCards[action.section][0];
+    const card = requireSprintPracticeCard(action);
     selectPracticeCard(card);
-    setTab('practice');
+    setTab('library');
     setFeedback(action.reason);
+  }
+
+  function getFirstValidPathAction(day: PathDayView) {
+    if (day.status !== 'current' && day.status !== 'available_optional') return undefined;
+
+    if (day.status === 'available_optional') {
+      return day.actions[0];
+    }
+
+    return day.actions.find((action) => action.type !== 'mock' || miniMockGate.allowed) ?? day.actions[0];
+  }
+
+  function startPathDayAction(day: PathDayView) {
+    const action = getFirstValidPathAction(day);
+    if (!action) return;
+
+    startSprintAction(action);
+    if (day.status === 'available_optional') {
+      setFeedback(`Optional sprint override opened: ${action.reason}`);
+    }
+  }
+
+  function getPathDayActionLabel(day: PathDayView) {
+    const action = getFirstValidPathAction(day);
+    if (!action) return '';
+    if (day.status === 'available_optional') return `Optional: ${action.label}`;
+    return `Start: ${action.label}`;
   }
 
   function submitMockTest() {
@@ -835,46 +950,49 @@ export function CoachApp() {
       .map((card) => buildErrorEntry(card, false))
       .filter((entry) => entry !== null);
 
-    setState((prev) => {
-      let sectionScores = applyPracticeOutcome(prev, 'reading', 'mock reading', evaluation.readingScore, true);
-      sectionScores = applyPracticeOutcome({ ...prev, sectionScores }, 'listening', 'mock listening', evaluation.listeningScore, true);
-      sectionScores = applyPracticeOutcome({ ...prev, sectionScores }, 'speaking', 'mock speaking', evaluation.speakingScore, true);
-      sectionScores = applyPracticeOutcome({ ...prev, sectionScores }, 'writing', 'mock writing', evaluation.writingScore, true);
+    let sectionScores = applyPracticeOutcome(state, 'reading', 'mock reading', evaluation.readingScore, true);
+    sectionScores = applyPracticeOutcome({ ...state, sectionScores }, 'listening', 'mock listening', evaluation.listeningScore, true);
+    sectionScores = applyPracticeOutcome({ ...state, sectionScores }, 'speaking', 'mock speaking', evaluation.speakingScore, true);
+    sectionScores = applyPracticeOutcome({ ...state, sectionScores }, 'writing', 'mock writing', evaluation.writingScore, true);
 
-      return {
-        ...prev,
-        sectionScores,
-        subskillScores: {
-          ...prev.subskillScores,
-          'mock reading': evaluation.readingScore,
-          'mock listening': evaluation.listeningScore,
-          'mock speaking': evaluation.speakingScore,
-          'mock writing': evaluation.writingScore,
+    const nextState: AppState = {
+      ...state,
+      sectionScores,
+      subskillScores: {
+        ...state.subskillScores,
+        'mock reading': evaluation.readingScore,
+        'mock listening': evaluation.listeningScore,
+        'mock speaking': evaluation.speakingScore,
+        'mock writing': evaluation.writingScore,
+      },
+      xp: state.xp + 70,
+      streak: streakUpdate === 'increment' ? state.streak + 1 : streakUpdate === 'reset' ? 1 : Math.max(state.streak, 1),
+      lastActiveDate: getLocalDateKey(),
+      reviewQueue: [...missedRepairCards.map(buildReviewCard), ...state.reviewQueue],
+      errorLog: [...mockErrorEntries, ...state.errorLog],
+      miniMockAttempts: upsertMiniMockAttempt(state.miniMockAttempts, submittedAttempt),
+      practiceHistory: [
+        {
+          id: `${currentMock.id}-${now}`,
+          section: 'listening' as Section,
+          subskill: 'mini mock',
+          score: evaluation.overall / 100,
+          completedAt: now,
+          notes: `${evaluation.objectiveCorrect}/${evaluation.objectiveTotal} objective; speaking checklist ${Object.values(mockRubric).filter(Boolean).length}/3; speaking audio ${hasSpeakingAudioEvidence ? 'yes' : 'no'}; writing ${evaluation.writingWords} words; timer ${finalMockTimed ? formatElapsedSeconds(finalMockElapsed) : 'not used'}.`,
+          supported: true,
         },
-        xp: prev.xp + 70,
-        streak: streakUpdate === 'increment' ? prev.streak + 1 : streakUpdate === 'reset' ? 1 : Math.max(prev.streak, 1),
-        lastActiveDate: getLocalDateKey(),
-        reviewQueue: [...missedRepairCards.map(buildReviewCard), ...prev.reviewQueue],
-        errorLog: [...mockErrorEntries, ...prev.errorLog],
-        miniMockAttempts: upsertMiniMockAttempt(prev.miniMockAttempts, submittedAttempt),
-        practiceHistory: [
-          {
-            id: `${currentMock.id}-${now}`,
-            section: 'listening' as Section,
-            subskill: 'mini mock',
-            score: evaluation.overall / 100,
-            completedAt: now,
-            notes: `${evaluation.objectiveCorrect}/${evaluation.objectiveTotal} objective; speaking checklist ${Object.values(mockRubric).filter(Boolean).length}/3; speaking audio ${hasSpeakingAudioEvidence ? 'yes' : 'no'}; writing ${evaluation.writingWords} words; timer ${finalMockTimed ? formatElapsedSeconds(finalMockElapsed) : 'not used'}.`,
-            supported: true,
-          },
-          ...prev.practiceHistory,
-        ].slice(0, 40),
-      };
-    });
+        ...state.practiceHistory,
+      ].slice(0, 40),
+    };
+
+    setState(nextState);
     setMockSubmitted(true);
     setMockStartedAt(null);
     setMockElapsedSnapshot(finalMockElapsed);
-    setFeedback(`Mini mock saved. Completion signal: ${evaluation.overall}/100. ${evaluation.feedback} Repair rule: ${currentMockMetadata?.repairRule ?? 'Review the first missed subskill.'}`);
+    const firstMiniMockSubmission = state.miniMockAttempts.every((attempt) => !attempt.submitted);
+    setFeedback(firstMiniMockSubmission
+      ? 'Your readiness report is unlocked. This is not an official TOEFL score, but it shows your current evidence level.'
+      : `Mini mock saved. Completion signal: ${evaluation.overall}/100. ${evaluation.feedback} Repair rule: ${currentMockMetadata.repairRule}`);
   }
 
   function submitSpeaking(card: PracticeCard) {
@@ -883,14 +1001,14 @@ export function CoachApp() {
     const supported = evaluation.band !== 'ready';
     const streakUpdate = updateStreak(state.lastActiveDate);
 
-    setState((prev) => ({
-      ...prev,
-      sectionScores: applyPracticeOutcome(prev, 'speaking', card.subskill, score, supported),
-      subskillScores: updateSubskillScores(prev.subskillScores, card.subskill, score),
-      xp: prev.xp + card.xp,
-      streak: streakUpdate === 'increment' ? prev.streak + 1 : streakUpdate === 'reset' ? 1 : Math.max(prev.streak, 1),
+    const nextState: AppState = {
+      ...state,
+      sectionScores: applyPracticeOutcome(state, 'speaking', card.subskill, score, supported),
+      subskillScores: updateSubskillScores(state.subskillScores, card.subskill, score),
+      xp: state.xp + card.xp,
+      streak: streakUpdate === 'increment' ? state.streak + 1 : streakUpdate === 'reset' ? 1 : Math.max(state.streak, 1),
       lastActiveDate: getLocalDateKey(),
-      reviewQueue: [buildReviewCard(card), ...prev.reviewQueue],
+      reviewQueue: [buildReviewCard(card), ...state.reviewQueue],
       practiceHistory: [
         {
           id: `${card.id}-${Date.now()}`,
@@ -901,16 +1019,19 @@ export function CoachApp() {
           notes: speakingNotes,
           supported,
         },
-        ...prev.practiceHistory,
+        ...state.practiceHistory,
       ].slice(0, 40),
       speakingAttempts: [
         { promptId: card.id, selfRating: speakingRating, notes: speakingNotes, hasAudioEvidence: Boolean(audioUrl) },
-        ...prev.speakingAttempts.filter((entry) => entry.promptId !== card.id),
+        ...state.speakingAttempts.filter((entry) => entry.promptId !== card.id),
       ],
-    }));
+    };
+
+    setState(nextState);
 
     setLastSpeakingEvaluation(evaluation);
-    setFeedback(`${evaluation.summary} Repair: ${evaluation.repairs[0]}`);
+    const reveal = buildDailyMissionReveal(state, nextState);
+    setFeedback(reveal || `${evaluation.summary} Repair: ${evaluation.repairs[0]}`);
   }
 
   function handleReview(card: ReviewCard, remembered: boolean) {
@@ -1061,6 +1182,10 @@ export function CoachApp() {
   const firstRecommendedSection = dailyPlan[0]?.section ?? 'reading';
   const firstRecommendedCard = prioritizePracticeCards(state, firstRecommendedSection)[0] ?? practiceCards[firstRecommendedSection][0];
   const firstRecommendedMetadata = getPracticeCardMetadata(firstRecommendedCard);
+  const firstRecommendedReason = dailyPlan[0]?.reason ?? firstRecommendedMetadata.repairRule;
+  const relatedPracticeCards = orderedPracticeCards
+    .filter((card) => card.id !== currentCard.id && card.id !== firstRecommendedCard.id)
+    .slice(0, 3);
   const learnerName = state.profile.name.trim() || 'Beta learner';
   const dataMode = authLoaded && isSignedIn ? 'Cloud sync' : authLoaded ? 'Local guest' : 'Checking account';
   const dataModeClass = authLoaded && isSignedIn ? 'cloud' : authLoaded ? 'local' : 'loading';
@@ -1164,15 +1289,17 @@ export function CoachApp() {
               </div>
             ))}
           </div>
-          <div className="grid four">
-            {sectionOrder.map((item) => (
-              <div className="stat" key={item}>
-                <span className="mini">{sectionLabels[item]}</span>
-                <strong>{formatPercent(state.sectionScores[item])}</strong>
-                <div className="progressBar"><span style={{ width: formatPercent(state.sectionScores[item]) }} /></div>
-              </div>
-            ))}
-          </div>
+          {tab !== 'today' && (
+            <div className="grid four">
+              {sectionOrder.map((item) => (
+                <div className="stat" key={item}>
+                  <span className="mini">{sectionLabels[item]}</span>
+                  <strong>{formatPercent(state.sectionScores[item])}</strong>
+                  <div className="progressBar"><span style={{ width: formatPercent(state.sectionScores[item]) }} /></div>
+                </div>
+              ))}
+            </div>
+          )}
         </section>
 
       {!state.onboarded ? (
@@ -1270,244 +1397,102 @@ export function CoachApp() {
               <div className="panel stack">
                 <div className="row">
                   <div>
-                    <span className="kicker">Test-week sprint</span>
-                    <h2>{todaySprint.title}</h2>
-                    <p className="copy">{todaySprint.outcome}</p>
+                    <span className="kicker">Current coaching step</span>
+                    <h2>Today&apos;s mission</h2>
+                    <p className="copy">One required proof point comes first. The full path, readiness, and library stay secondary.</p>
                   </div>
                   <div className="chips">
-                    <span className="pill-good">Day {todaySprint.day}</span>
-                    <span className="chip">{todaySprint.minutes} min</span>
-                    {todaySprint.sectionFocus.map((item) => <span className="chip" key={item}>{sectionLabels[item]}</span>)}
-                    <button className="secondary compactButton" onClick={useNextWeekPlan}>Use next-week plan</button>
-                    <button className="secondary compactButton" onClick={useThreeDaySprint}>Use 3-day sprint</button>
+                    <span className="pill-good">Day {todayMission.day}</span>
+                    <span className="chip">{todayMission.minutes} min</span>
+                    <span className="chip">{todayMission.focusLabel}</span>
                   </div>
                 </div>
-	                <div className="grid two">
-	                  <div className="sectionCard stack">
-	                    <h3>Do this today</h3>
-	                    {todaySprint.tasks.map((task) => <p className="copy" key={task}>- {task}</p>)}
-                      <div className="chips">
-                        {todaySprint.actions.map((action) => (
-                          <button className="secondary compactButton" key={`${action.type}-${action.label}`} onClick={() => startSprintAction(action)}>
-                            {action.label}
-                          </button>
-                        ))}
-                      </div>
-	                  </div>
-	                  <div className="sectionCard stack">
-	                    <h3>Proof gates</h3>
-	                    {sprintGates.map((gate) => (
-	                      <div className="row" key={gate.label}>
-	                        <span>{gate.label}</span>
-	                        <span className={gate.done ? 'pill-good' : 'pill-warn'}>{gate.evidence}</span>
-	                      </div>
-	                    ))}
-	                  </div>
-	                </div>
-	                {testWeekCommandPanel}
-	                <div className="sectionCard stack">
-	                  <div className="row">
-	                    <span className="pill-good">Sprint next action</span>
-	                    <span className="mini">{sprintNextAction.type === 'mock' ? 'Proof set' : sectionLabels[sprintNextAction.section]}</span>
-	                  </div>
-	                  <h3>{sprintNextAction.title}</h3>
-	                  <p className="copy">{sprintNextAction.reason}</p>
-	                  <button className="cta" onClick={startSprintNextAction}>
-	                    {sprintNextAction.type === 'mock' ? 'Start proof set' : 'Start repair drill'}
-	                  </button>
-	                </div>
+
                 <div className="sectionCard stack">
                   <div className="row">
-                    <span className={testReadinessReport.verdict === 'ready-to-sit' ? 'pill-good' : testReadinessReport.verdict === 'blocked' ? 'pill-bad' : 'pill-warn'}>
-                      Test readiness
-                    </span>
-                    <span className="mini">{testReadinessReport.evidenceScore}/100 evidence • {testReadinessReport.daysLeft} days left</span>
+                    <div className="stack" style={{ gap: 6 }}>
+                      <span className="pill-good">Today&apos;s mission</span>
+                      <h3>{todayMission.title}</h3>
+                    </div>
+                    <span className="mini">Focus: {todayMission.focusLabel}</span>
                   </div>
-                  <h3>{testReadinessReport.headline}</h3>
-                  <p className="copy">{testReadinessReport.summary}</p>
-                  <p className="copy">Next: {testReadinessReport.nextActionLabel}. {testReadinessReport.nextActionReason}</p>
-                </div>
-                <div className="sectionCard stack">
-                  <div className="row">
-                    <span className="pill-good">Final test-day plan</span>
-                    <span className="mini">{testDayPlan.blocks.reduce((total, block) => total + block.minutes, 0)} min</span>
-                  </div>
-                  <h3>{testDayPlan.title}</h3>
-                  <p className="copy">{testDayPlan.summary}</p>
-                  <div className="chips">
-                    {testDayPlan.blocks.slice(0, 3).map((block) => (
-                      <span className="chip" key={block.title}>{block.title} • {block.minutes} min</span>
+                  <p className="copy">Why this matters: {todayMission.why}</p>
+                  <div className="chips" aria-label="Completion checklist">
+                    {todayMission.checklist.map((item) => (
+                      <span className={item.done ? 'pill-good' : 'pill-warn'} key={item.label}>{item.done ? 'Done' : 'Next'}: {item.label}</span>
                     ))}
                   </div>
+                  {todayMission.action && (
+                    <button className="cta" onClick={() => startSprintAction(todayMission.action!)}>{todayMission.primaryActionLabel}</button>
+                  )}
+                  <p className="mini">Coach note: {todayMission.coachNote}</p>
                 </div>
-	                <div className="grid two">
-	                  {sprintPlan.map((day) => (
-                    <div className="sectionCard stack" key={day.day}>
+
+                <div className="sectionCard stack">
+                  {todayMission.tomorrow ? (
+                    <>
                       <div className="row">
-                        <span className={day.day === todaySprint.day ? 'pill-good' : 'chip'}>Day {day.day}</span>
-                        <span className="mini">{day.sectionFocus.map((item) => sectionLabels[item]).join(' + ')}</span>
+                        <span className={todayMission.tomorrow.status === 'locked' ? 'chip' : 'pill-warn'}>Tomorrow preview</span>
+                        <span className="mini">Day {todayMission.tomorrow.day} • {todayMission.tomorrow.minutes} min</span>
                       </div>
-                      <h3>{day.title}</h3>
-                      <p className="copy">{day.outcome}</p>
-                      <div className="chips">
-                        {day.actions.slice(0, 2).map((action) => (
-                          <button className={day.day === todaySprint.day ? 'secondary compactButton' : 'ghost compactButton'} key={`${day.day}-${action.type}-${action.label}`} onClick={() => startSprintAction(action)}>
-                            {action.label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {personalProofGatePanel}
-
-              <div className="panel stack">
-                <div className="row">
-                  <div>
-                    <h2>Today&apos;s adaptive plan</h2>
-                    <p className="copy">Built from your weakest sections, review pressure, and test-date urgency.</p>
-                  </div>
-                  <div className="chips">
-                    <span className="chip">{state.profile.dailyMinutes} min budget</span>
-                    <span className="chip">{todayReview.length} due reviews</span>
-                  </div>
-                </div>
-                <div className="grid two">
-                  <div className="sectionCard stack">
-                    <div className="row">
-                      <span className="pill-good">Next best action</span>
-                      <span className="mini">{firstRecommendedMetadata.difficultyBand} • {Math.round(firstRecommendedMetadata.timingSeconds / 60)} min</span>
-                    </div>
-                    <h3>{firstRecommendedCard.title}</h3>
-                    <p className="copy">{firstRecommendedMetadata.cue}</p>
-                    <div className="chips">
-                      <span className="chip">{firstRecommendedMetadata.questionType}</span>
-                      <span className="chip">Strategy {firstRecommendedMetadata.strategyCardId}</span>
-                    </div>
-                    <button
-                      className="cta"
-                      onClick={() => {
-                        selectPracticeCard(firstRecommendedCard);
-                        setTab('practice');
-                      }}
-                    >
-                      Start exact next drill
-                    </button>
-                  </div>
-                  {dailyPlan.map((task: DailyTask) => (
-                    <button
-                      key={task.id}
-                      className="sectionCard stack"
-                      title={summarizeDailyPlanTask(task)}
-                      onClick={() => {
-                        setSection(task.section);
-                        setTab(task.block === 'Review' ? 'review' : 'practice');
-                      }}
-                    >
+                      <h3>{todayMission.tomorrow.title}</h3>
+                      <p className="copy">{todayMission.tomorrow.unlockReason}</p>
+                    </>
+                  ) : (
+                    <>
                       <div className="row">
-                        <span className="chip">{task.block}</span>
-                        <span className="mini">{task.minutes} min</span>
+                        <span className="chip">Tomorrow preview</span>
+                        <span className="mini">After this mission</span>
                       </div>
-                      <h3>{task.title}</h3>
-                      <p className="copy">{task.reason}</p>
-                    </button>
-                  ))}
+                      <h3>Review proof and protect the score</h3>
+                      <p className="copy">Check readiness, revisit saved repairs, and avoid adding new heavy work unless the evidence asks for it.</p>
+                    </>
+                  )}
                 </div>
-              </div>
 
-              <div className="grid two">
-                <div className="panel stack">
-                  <h2>Evidence snapshot</h2>
-                  <p className="copy">Current section estimates from strategy questions, practice outcomes, and mock-test evidence.</p>
-                  {sectionOrder.map((item) => (
-                    <div key={item} className="stack" style={{ gap: 6 }}>
-                      <div className="row"><span>{sectionLabels[item]}</span><span className="mini">{formatPercent(state.sectionScores[item])}</span></div>
-                      <div className="progressBar"><span style={{ width: formatPercent(state.sectionScores[item]) }} /></div>
-                    </div>
-                  ))}
-                </div>
-                <div className="panel stack">
-                  <h2>Current blockers</h2>
-                  {blockerList.length ? blockerList.map((item) => <div key={item} className="sectionCard"><p>{item}</p></div>) : <p className="copy">No major blockers flagged yet. Keep pushing consistency.</p>}
+                <div className="chips">
+                  <button className="secondary compactButton" onClick={() => setTab('path')}>View full path</button>
+                  <button className="ghost compactButton" onClick={() => setTab('progress')}>See readiness</button>
+                  <button className="ghost compactButton" onClick={() => setTab('library')}>Open practice library</button>
                 </div>
               </div>
             </section>
           )}
 
-          {tab === 'practice' && (
+          {tab === 'library' && (
             <section className="stack">
-              <div className="panel stack">
-                <div className="row">
-                  <div>
-                    <span className="kicker">Test-week playbook</span>
-                    <h2>{currentPlaybook.title}</h2>
-                    <p className="copy">{currentPlaybook.testShape}</p>
-                  </div>
-                  <span className="pill-good">{sectionLabels[section]}</span>
-                </div>
-                <div className="grid two">
-                  <div className="sectionCard stack">
-                    <h3>Win condition</h3>
-                    <p>{currentPlaybook.winCondition}</p>
-                    <h3>Note format</h3>
-                    {currentPlaybook.noteFormat.map((item) => <p className="copy" key={item}>- {item}</p>)}
-                  </div>
-                  <div className="sectionCard stack">
-                    <h3>Template</h3>
-                    {currentPlaybook.template.map((item, index) => <p className="copy" key={item}>{index + 1}. {item}</p>)}
-                  </div>
-                </div>
-                <div className="grid two">
-                  <div className="sectionCard stack">
-                    <h3>Common traps</h3>
-                    {currentPlaybook.traps.map((trap) => <span className="pill-warn" key={trap}>{trap}</span>)}
-                  </div>
-                  <div className="sectionCard stack">
-                    <h3>Timed drills</h3>
-                    {currentPlaybook.drills.map((drill) => <p className="copy" key={drill}>- {drill}</p>)}
-                  </div>
-                </div>
+              <div className="sectionCard row">
+                <p className="copy">Library access: {fullLibraryGate.reason}</p>
+                <span className={fullLibraryGate.allowed ? 'pill-good' : 'pill-warn'}>{fullLibraryGate.status}</span>
               </div>
-
               <div className="panel stack">
                 <div className="row">
                   <div>
-                    <h2>Practice by section</h2>
-                    <p className="copy">Broader TOEFL-style exposure with local-first scoring. Cards are reordered toward weaker and less-practiced subskills first.</p>
+                    <span className="kicker">Recommended now</span>
+                    <h2>{firstRecommendedCard.title}</h2>
+                    <p className="copy">Why this is recommended: {firstRecommendedReason}</p>
                   </div>
                   <div className="chips">
-                    {sectionOrder.map((item) => (
-                      <button key={item} className={`segmentButton ${section === item ? 'active' : ''}`} aria-pressed={section === item} onClick={() => setSection(item)}>{sectionLabels[item]}</button>
-                    ))}
-                    <span className="chip">{orderedPracticeCards.length} cards</span>
+                    <span className="pill-good">{sectionLabels[firstRecommendedCard.section]}</span>
+                    <span className="chip">{firstRecommendedMetadata.questionType}</span>
+                    <span className="chip">Strategy {firstRecommendedMetadata.strategyCardId}</span>
                   </div>
                 </div>
-                <div className="grid two">
-                  {orderedPracticeCards.map((card) => {
-                    const metadata = getPracticeCardMetadata(card);
-                    return (
-                      <button key={card.id} className="sectionCard stack" onClick={() => selectPracticeCard(card)}>
-                        <div className="row">
-                          <span className="chip">{metadata.questionType}</span>
-                          <span className="mini">+{card.xp} XP • {metadata.difficultyBand}</span>
-                        </div>
-                        <div className="row">
-                          <h3>{card.title}</h3>
-                          {recommendedDrillIds.has(card.id) && <span className="pill-warn">Recommended first</span>}
-                        </div>
-                        <p className="copy">{metadata.cue}</p>
-                        <p className="mini">Approved seed • Strategy {metadata.strategyCardId}</p>
-                      </button>
-                    );
-                  })}
+                <div className="sectionCard stack">
+                  <div className="row">
+                    <span className="mini">{firstRecommendedMetadata.difficultyBand} • {Math.round(firstRecommendedMetadata.timingSeconds / 60)} min target</span>
+                    <span className="mini">+{firstRecommendedCard.xp} XP</span>
+                  </div>
+                  <p>{firstRecommendedMetadata.cue}</p>
+                  <p className="copy">{firstRecommendedCard.prompt}</p>
+                  <button className="cta" onClick={() => selectPracticeCard(firstRecommendedCard)}>Start recommended drill</button>
                 </div>
               </div>
 
               <div className="panel stack">
                 <div className="row">
                   <div>
+                    <span className="kicker">Current repair drill</span>
                     <h2>{currentCard.title}</h2>
                     <p className="copy">{currentCard.prompt}</p>
                   </div>
@@ -1657,12 +1642,244 @@ export function CoachApp() {
                   {currentCard.followUp && <p className="copy">Follow-up: {currentCard.followUp}</p>}
                 </div>
               </div>
+
+              <div className="panel stack">
+                <div className="row">
+                  <div>
+                    <span className="kicker">Optional related practice</span>
+                    <h2>Small next set</h2>
+                    <p className="copy">Use these only if the current repair feels stable.</p>
+                  </div>
+                  <span className="chip">{relatedPracticeCards.length} cards</span>
+                </div>
+                <div className="grid two">
+                  {relatedPracticeCards.map((card) => {
+                    const metadata = getPracticeCardMetadata(card);
+                    return (
+                      <button key={card.id} className="sectionCard stack" onClick={() => selectPracticeCard(card)}>
+                        <div className="row">
+                          <span className="chip">{metadata.questionType}</span>
+                          <span className="mini">+{card.xp} XP • {metadata.difficultyBand}</span>
+                        </div>
+                        <h3>{card.title}</h3>
+                        <p className="copy">{metadata.cue}</p>
+                        <p className="mini">Approved seed • Strategy {metadata.strategyCardId}</p>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="panel stack">
+                <div className="row">
+                  <div>
+                    <span className="kicker">Explore all practice</span>
+                    <h2>Full library</h2>
+                    <p className="copy">{fullLibraryGate.allowed ? 'Open this when you want broader section practice.' : fullLibraryGate.reason}</p>
+                  </div>
+                  <div className="chips">
+                    <span className={fullLibraryGate.allowed ? 'pill-good' : 'pill-warn'}>{fullLibraryGate.status}</span>
+                    <button className="secondary compactButton" disabled={!fullLibraryGate.allowed} onClick={() => setShowFullLibrary((value) => !value)}>
+                      {showFullLibrary ? 'Hide all practice' : 'Explore all practice'}
+                    </button>
+                  </div>
+                </div>
+
+                {!fullLibraryGate.allowed && <p className="copy">{fullLibraryGate.reason}</p>}
+
+                {fullLibraryGate.allowed && showFullLibrary && (
+                  <div className="stack">
+                    <div className="sectionCard stack">
+                      <div className="row">
+                        <div>
+                          <span className="kicker">Test-week playbook</span>
+                          <h3>{currentPlaybook.title}</h3>
+                          <p className="copy">{currentPlaybook.testShape}</p>
+                        </div>
+                        <span className="pill-good">{sectionLabels[section]}</span>
+                      </div>
+                      <div className="grid two">
+                        <div className="stack">
+                          <h3>Win condition</h3>
+                          <p>{currentPlaybook.winCondition}</p>
+                          <h3>Note format</h3>
+                          {currentPlaybook.noteFormat.map((item) => <p className="copy" key={item}>- {item}</p>)}
+                        </div>
+                        <div className="stack">
+                          <h3>Template</h3>
+                          {currentPlaybook.template.map((item, index) => <p className="copy" key={item}>{index + 1}. {item}</p>)}
+                        </div>
+                      </div>
+                      <div className="grid two">
+                        <div className="stack">
+                          <h3>Common traps</h3>
+                          {currentPlaybook.traps.map((trap) => <span className="pill-warn" key={trap}>{trap}</span>)}
+                        </div>
+                        <div className="stack">
+                          <h3>Timed drills</h3>
+                          {currentPlaybook.drills.map((drill) => <p className="copy" key={drill}>- {drill}</p>)}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="row">
+                      <div>
+                        <h3>Practice by section</h3>
+                        <p className="copy">Broader TOEFL-style exposure with local-first scoring. Cards are reordered toward weaker and less-practiced subskills first.</p>
+                      </div>
+                      <div className="chips">
+                        {sectionOrder.map((item) => (
+                          <button key={item} className={`segmentButton ${section === item ? 'active' : ''}`} aria-pressed={section === item} onClick={() => setSection(item)}>{sectionLabels[item]}</button>
+                        ))}
+                        <span className="chip">{orderedPracticeCards.length} cards</span>
+                      </div>
+                    </div>
+                    <div className="grid two">
+                      {orderedPracticeCards.map((card) => {
+                        const metadata = getPracticeCardMetadata(card);
+                        return (
+                          <button key={card.id} className={`sectionCard stack ${card.id === currentCard.id ? 'selectedCard' : ''}`} aria-pressed={card.id === currentCard.id} onClick={() => selectPracticeCard(card)}>
+                            <div className="row">
+                              <span className="chip">{metadata.questionType}</span>
+                              <span className="mini">+{card.xp} XP • {metadata.difficultyBand}</span>
+                            </div>
+                            <div className="row">
+                              <h3>{card.title}</h3>
+                              {recommendedDrillIds.has(card.id) && <span className="pill-warn">Recommended first</span>}
+                            </div>
+                            <p className="copy">{metadata.cue}</p>
+                            <p className="mini">Approved seed • Strategy {metadata.strategyCardId}</p>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
             </section>
           )}
 
-          {tab === 'mock' && (
+          {tab === 'path' && (
             <section className="stack">
               <div className="panel stack">
+                <div className="row">
+                  <div>
+                    <span className="kicker">Path</span>
+                    <h2>Current path</h2>
+                    <p className="copy">Locked future days stay visible. Complete today’s mission to unlock the next step.</p>
+                    <p className="copy">Need to jump ahead because your test is soon? Use sprint mode.</p>
+                  </div>
+                  <span className="chip">{pathDayViews.length} days</span>
+                </div>
+                <div className="grid two">
+                  {pathDayViews.map((day) => {
+                    const actionLabel = getPathDayActionLabel(day);
+                    const showCta = Boolean(actionLabel) && (day.status === 'current' || day.status === 'available_optional');
+                    return (
+                      <div className={`sectionCard stack pathCard ${pathStatusClass(day.status)}`} key={day.day} aria-disabled={day.status === 'locked' ? true : undefined}>
+                        <div className="row">
+                          <div className="chips">
+                            <span className={day.status === 'locked' ? 'chip' : day.status === 'current' ? 'pill-warn' : 'pill-good'}>
+                              Day {day.day}
+                            </span>
+                            <span className={pathStatusBadgeClass[day.status]}>{pathStatusLabels[day.status]}</span>
+                          </div>
+                          <span className="mini">{day.minutes} min</span>
+                        </div>
+                        <h3>{day.title}</h3>
+                        <p className="copy">Outcome: {day.outcome}</p>
+                        <div className="chips" aria-label={`Day ${day.day} focus sections`}>
+                          {day.sectionFocus.map((item) => (
+                            <span className="chip" key={`${day.day}-${item}`}>{sectionLabels[item]}</span>
+                          ))}
+                        </div>
+                        <div className="stack" style={{ gap: 8 }}>
+                          <span className="mini">Focus work</span>
+                          {day.tasks.slice(0, 3).map((task) => <p className="copy" key={`${day.day}-${task}`}>- {task}</p>)}
+                        </div>
+                        <p className={day.status === 'locked' ? 'pathUnlockReason lockedReason' : 'pathUnlockReason'}>{day.unlockReason}</p>
+                        {day.status === 'completed' && <p className="mini">✓ Saved evidence completed this step. No launch required.</p>}
+                        {day.status === 'available_optional' && <p className="mini">Optional sprint work only — not required for today’s mission.</p>}
+                        {showCta && (
+                          <button className={day.status === 'current' ? 'cta' : 'secondary'} onClick={() => startPathDayAction(day)}>
+                            {actionLabel}
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+              <div className="panel stack">
+                <div className="row">
+                  <div>
+                    <span className="kicker">Full plan</span>
+                    <h2>{todaySprint.title}</h2>
+                    <p className="copy">{todaySprint.outcome}</p>
+                  </div>
+                  <div className="chips">
+                    <span className="chip">{state.profile.dailyMinutes} min budget</span>
+                    <span className="chip">{todayReview.length} due reviews</span>
+                    <button className="secondary compactButton" onClick={useNextWeekPlan}>Use next-week plan</button>
+                    <button className="secondary compactButton" onClick={useThreeDaySprint}>Use 3-day sprint</button>
+                  </div>
+                </div>
+                <div className="grid two">
+                  <div className="sectionCard stack">
+                    <div className="row">
+                      <span className="pill-good">Next best action</span>
+                      <span className="mini">{firstRecommendedMetadata.difficultyBand} • {Math.round(firstRecommendedMetadata.timingSeconds / 60)} min</span>
+                    </div>
+                    <h3>{firstRecommendedCard.title}</h3>
+                    <p className="copy">{firstRecommendedMetadata.cue}</p>
+                    <div className="chips">
+                      <span className="chip">{firstRecommendedMetadata.questionType}</span>
+                      <span className="chip">Strategy {firstRecommendedMetadata.strategyCardId}</span>
+                    </div>
+                    <button
+                      className="cta"
+                      onClick={() => {
+                        selectPracticeCard(firstRecommendedCard);
+                        setTab('library');
+                      }}
+                    >
+                      Start exact next drill
+                    </button>
+                  </div>
+                  {dailyPlan.map((task: DailyTask) => (
+                    <button
+                      key={task.id}
+                      className="sectionCard stack"
+                      title={summarizeDailyPlanTask(task)}
+                      onClick={() => {
+                        setSection(task.section);
+                        setTab(task.block === 'Review' ? 'review' : 'library');
+                      }}
+                    >
+                      <div className="row">
+                        <span className="chip">{task.block}</span>
+                        <span className="mini">{task.minutes} min</span>
+                      </div>
+                      <h3>{task.title}</h3>
+                      <p className="copy">{task.reason}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="sectionCard row">
+                <div>
+                  <p className="copy">Mini mock access: {optionalMockOverride && !miniMockGate.allowed ? 'Optional sprint override is active for this proof set.' : miniMockGate.reason}</p>
+                  <p className="mini">The proof milestone sits at the end of the path.</p>
+                </div>
+                <div className="chips">
+                  <span className={canShowMiniMock ? 'pill-good' : 'pill-warn'}>{optionalMockOverride && !miniMockGate.allowed ? 'available_optional' : miniMockGate.status}</span>
+                  <button className="secondary compactButton" onClick={startSprintNextAction}>
+                    {sprintNextAction.type === 'mock' ? 'Open mini mock proof set' : 'Start next repair'}
+                  </button>
+                </div>
+              </div>
+              {canShowMiniMock ? (
+                <div className="panel stack">
                 <div className="row">
                   <div>
                     <h2>{currentMock.title}</h2>
@@ -1701,7 +1918,7 @@ export function CoachApp() {
 		                      {currentMiniMockAttempt.score !== undefined && <span className="pill-good">{Math.round(currentMiniMockAttempt.score * 100)}/100 signal</span>}
 		                    </div>
 			                    <p className="copy">Submitted {currentMiniMockAttempt.submittedAt ? new Date(currentMiniMockAttempt.submittedAt).toLocaleString() : 'previously'}. {currentMiniMockAttempt.timed ? `Timed: ${formatElapsedSeconds(currentMiniMockAttempt.elapsedSeconds ?? 0)}.` : 'Timer was not used.'} This completion signal is not an official TOEFL score.</p>
-			                    <p className="copy">Repair: {currentMockMetadata?.repairRule ?? 'Review missed subskills and complete the next recommended drill.'}</p>
+			                    <p className="copy">Repair: {currentMockMetadata.repairRule}</p>
 			                    <button className="cta" onClick={startSprintNextAction}>
 			                      {sprintNextAction.type === 'mock' ? 'Start next proof set' : 'Start exact repair'}
 			                    </button>
@@ -1760,7 +1977,7 @@ export function CoachApp() {
 	                          className="secondary compactButton"
 	                          onClick={() => {
 	                            setSection('speaking');
-	                            setTab('practice');
+	                            setTab('library');
 	                          }}
 	                        >
 	                          Record speaking evidence
@@ -1835,6 +2052,18 @@ export function CoachApp() {
 	                  {mockSubmitted ? 'Mini mock submitted' : 'Submit mini mock'}
 	                </button>
               </div>
+              ) : (
+                <div className="panel stack">
+                  <div className="sectionCard stack">
+                    <span className="pill-warn">Mini mock locked</span>
+                    <h3>Complete the current repair proof first</h3>
+                    <p className="copy">{miniMockGate.reason}</p>
+                    <button className="cta" onClick={startSprintNextAction}>
+                      Start next required step
+                    </button>
+                  </div>
+                </div>
+              )}
             </section>
           )}
 
@@ -1874,7 +2103,7 @@ export function CoachApp() {
             </section>
           )}
 
-          {tab === 'errors' && (
+          {tab === 'review' && (
             <section className="stack">
               <div className="panel stack">
                 <div className="row">
@@ -1901,7 +2130,7 @@ export function CoachApp() {
             </section>
           )}
 
-          {tab === 'dashboard' && (
+          {tab === 'progress' && (
             <section className="stack">
               <div className="grid two">
                 <div className="panel stack">
@@ -1923,6 +2152,23 @@ export function CoachApp() {
                     <span className="chip">Due review {todayReview.length}</span>
                     <span className="chip">Test date {state.profile.testDate}</span>
                   </div>
+                </div>
+              </div>
+
+              <div className="grid two">
+                <div className="panel stack">
+                  <h2>Evidence snapshot</h2>
+                  <p className="copy">Current section estimates from strategy questions, practice outcomes, and mock-test evidence.</p>
+                  {sectionOrder.map((item) => (
+                    <div key={item} className="stack" style={{ gap: 6 }}>
+                      <div className="row"><span>{sectionLabels[item]}</span><span className="mini">{formatPercent(state.sectionScores[item])}</span></div>
+                      <div className="progressBar"><span style={{ width: formatPercent(state.sectionScores[item]) }} /></div>
+                    </div>
+                  ))}
+                </div>
+                <div className="panel stack">
+                  <h2>Current blockers</h2>
+                  {blockerList.length ? blockerList.map((item) => <div key={item} className="sectionCard"><p>{item}</p></div>) : <p className="copy">No major blockers flagged yet. Keep pushing consistency.</p>}
                 </div>
               </div>
 

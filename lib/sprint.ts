@@ -55,6 +55,10 @@ const sectionDrillIds: Record<Section, string[]> = {
   writing: ['pr-w-4', 'pr-w-3', 'pr-w-6'],
 };
 
+function uniqueSections(...sections: Section[]) {
+  return sections.filter((section, index) => sections.indexOf(section) === index);
+}
+
 function firstDrillFor(section: Section) {
   return sectionDrillIds[section][0];
 }
@@ -155,7 +159,7 @@ export function generateSprintPlan(state: AppState): SprintDay[] {
       title: 'Baseline and templates',
       type: 'diagnose',
       minutes: available,
-      sectionFocus: ['speaking', 'writing', first],
+      sectionFocus: uniqueSections('speaking', 'writing', first),
       outcome: 'Know the weak section and memorize the first speaking/writing templates.',
       tasks: [
         'Finish onboarding and strategy diagnostic.',
@@ -220,7 +224,7 @@ export function generateSprintPlan(state: AppState): SprintDay[] {
       title: 'Mini mock and final repair',
       type: 'final',
       minutes: available,
-      sectionFocus: [first, second, 'writing'],
+      sectionFocus: uniqueSections(first, second, 'writing'),
       tasks: [
         'Complete the mini mock without pausing.',
         'Put each miss into a repair category.',

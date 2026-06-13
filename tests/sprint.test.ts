@@ -15,6 +15,14 @@ describe('test-week sprint', () => {
     expect(plan[4].title).toMatch(/final/i);
   });
 
+  it('uses unique section focus labels so React list keys stay stable', () => {
+    const plan = generateSprintPlan(initialState);
+
+    for (const day of plan) {
+      expect(new Set(day.sectionFocus).size).toBe(day.sectionFocus.length);
+    }
+  });
+
   it('makes every sprint day directly executable inside the app', () => {
     const plan = generateSprintPlan(initialState);
 

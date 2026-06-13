@@ -24,8 +24,12 @@ function latestSubmittedMockAttempt(attempts: MiniMockAttempt[]) {
     .sort((a, b) => new Date(b.submittedAt ?? b.updatedAt).getTime() - new Date(a.submittedAt ?? a.updatedAt).getTime())[0];
 }
 
-function findPracticeCard(section: Section, subskill: string): PracticeCard {
-  return practiceCards[section].find((card) => card.subskill === subskill) ?? practiceCards[section][0];
+export function requireRepairPracticeCard(section: Section, subskill: string): PracticeCard {
+  const card = practiceCards[section].find((item) => item.subskill === subskill);
+  if (!card) {
+    throw new Error(`Missing approved repair practice card for ${section}/${subskill}. Add an explicit repair mapping before recommending this path.`);
+  }
+  return card;
 }
 
 function firstUnsubmittedMock(state: AppState) {
@@ -45,7 +49,7 @@ export function getSprintNextAction(state: AppState): SprintNextAction {
     const missedQuestion = mock?.questions.find((question) => latestAttempt.answers[question.id] !== question.answer);
 
     if (missedQuestion) {
-      const card = findPracticeCard(missedQuestion.section, missedQuestion.subskill);
+      const card = requireRepairPracticeCard(missedQuestion.section, missedQuestion.subskill);
       return {
         type: 'practice',
         title: card.title,
@@ -56,7 +60,7 @@ export function getSprintNextAction(state: AppState): SprintNextAction {
     }
 
     if (!state.speakingAttempts.some((attempt) => attempt.hasAudioEvidence)) {
-      const card = findPracticeCard('speaking', 'timing control');
+      const card = requireRepairPracticeCard('speaking', 'timing control');
       return {
         type: 'practice',
         title: card.title,

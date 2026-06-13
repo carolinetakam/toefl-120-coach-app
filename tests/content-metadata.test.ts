@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildRepairNote, getMockQuestionMetadata, getMockTestMetadata, getPracticeCardMetadata } from '@/lib/content-metadata';
+import { getMockQuestionMetadata, getMockTestMetadata, getPracticeCardMetadata } from '@/lib/content-metadata';
 import { mockTests } from '@/lib/mock-tests';
 import { practiceCards } from '@/lib/seed';
 
@@ -35,7 +35,6 @@ describe('content metadata registry', () => {
       expect(metadata.section).toBe(question.section);
       expect(metadata.sourceType).toBe('approved_seed');
       expect(metadata.strategyCardId.length).toBeGreaterThan(0);
-      expect(buildRepairNote(metadata)).toContain(metadata.strategyCardId);
     }
   });
 
@@ -48,5 +47,29 @@ describe('content metadata registry', () => {
       expect(metadata?.reviewStatus).toBe('approved');
       expect(metadata?.timingSeconds).toBe(test.minutes * 60);
     }
+  });
+
+  it('fails loudly when practice content is missing approved metadata instead of using a fallback', () => {
+    const unknownCard = {
+      ...Object.values(practiceCards)[0][0],
+      id: 'unknown-practice-card',
+      subskill: 'unapproved generated subskill',
+    };
+
+    expect(() => getPracticeCardMetadata(unknownCard)).toThrow(/approved metadata/i);
+  });
+
+  it('fails loudly when a mock question is missing approved metadata instead of using section defaults', () => {
+    const unknownQuestion = {
+      ...mockTests[0].questions[0],
+      id: 'unknown-mock-question',
+      subskill: 'unapproved generated subskill',
+    };
+
+    expect(() => getMockQuestionMetadata(unknownQuestion)).toThrow(/approved metadata/i);
+  });
+
+  it('fails loudly when a mini mock is missing approved metadata instead of using the first mock', () => {
+    expect(() => getMockTestMetadata('unknown-mini-mock')).toThrow(/approved metadata/i);
   });
 });
