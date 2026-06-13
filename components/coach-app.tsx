@@ -38,6 +38,7 @@ const tabs: Array<{ key: TabKey; label: string }> = [
 
 const sectionOrder: Section[] = ['reading', 'listening', 'speaking', 'writing'];
 const strategyCardIds = ['pr-r-9', 'pr-l-9', 'pr-s-7', 'pr-w-7'];
+const strategyLayerSkillCopy = 'one hidden TOEFL logic skill: noticing structure, purpose, and evidence';
 
 function isStrategyLayerCard(cardId: string) {
   return strategyCardIds.includes(cardId);
@@ -183,6 +184,31 @@ function buildDailyMissionReveal(prev: AppState, next: AppState) {
   if (afterNextDay.status !== 'current' && afterNextDay.status !== 'available_optional') return '';
 
   return `Day ${beforeCurrent.day} complete. You unlocked Day ${afterNextDay.day}: ${afterNextDay.title}.`;
+}
+
+function hasCompletedStrategyLayer(history: AppState['practiceHistory']) {
+  return history.some((entry) => strategyCardIds.some((id) => entry.id.startsWith(id)));
+}
+
+function buildObjectiveStrategyLayerReveal(card: PracticeCard, correct: boolean) {
+  if (!isStrategyLayerCard(card.id)) return '';
+
+  const metadata = getPracticeCardMetadata(card);
+  if (correct) {
+    return `Strategy unlocked. You practiced ${strategyLayerSkillCopy}.`;
+  }
+
+  return `Strategy layer started. You practiced the strategy, but this attempt needs repair: ${buildRepairNote(metadata)}`;
+}
+
+function buildEvidenceStrategyLayerReveal(card: PracticeCard, evaluation: SkillEvaluation, supported: boolean) {
+  if (!isStrategyLayerCard(card.id)) return '';
+
+  if (!supported) {
+    return `Strategy unlocked. You practiced ${strategyLayerSkillCopy}. ${evaluation.summary}`;
+  }
+
+  return `Strategy layer started. You practiced the strategy, but this attempt needs repair: ${evaluation.summary} Repair: ${evaluation.repairs[0]}`;
 }
 
 function latestMiniMockAttempt(attempts: MiniMockAttempt[]) {
@@ -689,9 +715,7 @@ export function CoachApp() {
     const reviewCard = buildReviewCard(card);
     const streakUpdate = updateStreak(state.lastActiveDate);
     const metadata = getPracticeCardMetadata(card);
-    const alreadyCompletedStrategy = state.practiceHistory.some((entry) =>
-      strategyCardIds.some((id) => entry.id.startsWith(id)),
-    );
+    const alreadyCompletedStrategy = hasCompletedStrategyLayer(state.practiceHistory);
 
     const nextState: AppState = {
       ...state,
@@ -726,9 +750,7 @@ export function CoachApp() {
     setState(nextState);
 
     const reveal = buildDailyMissionReveal(state, nextState);
-    const firstStrategyReveal = isStrategyLayerCard(card.id) && !alreadyCompletedStrategy
-      ? 'Strategy unlocked. You just learned one of the hidden logic skills behind high TOEFL performance. TOEFL success is not only vocabulary — it is noticing structure, purpose, and evidence.'
-      : '';
+    const firstStrategyReveal = !alreadyCompletedStrategy ? buildObjectiveStrategyLayerReveal(card, correct) : '';
     setFeedback(firstStrategyReveal || reveal || (correct ? `Strong work. ${metadata.cue} ${card.explanation}` : `Logged for repair. ${buildRepairNote(metadata)}`));
   }
 
@@ -748,9 +770,7 @@ export function CoachApp() {
     const score = evaluation.score;
     const supported = evaluation.band !== 'ready';
     const streakUpdate = updateStreak(state.lastActiveDate);
-    const alreadyCompletedStrategy = state.practiceHistory.some((entry) =>
-      strategyCardIds.some((id) => entry.id.startsWith(id)),
-    );
+    const alreadyCompletedStrategy = hasCompletedStrategyLayer(state.practiceHistory);
 
     const nextState: AppState = {
       ...state,
@@ -782,9 +802,7 @@ export function CoachApp() {
 
     setLastWritingEvaluation(evaluation);
     const reveal = buildDailyMissionReveal(state, nextState);
-    const firstStrategyReveal = isStrategyLayerCard(card.id) && !alreadyCompletedStrategy
-      ? 'Strategy unlocked. You just learned one of the hidden logic skills behind high TOEFL performance. TOEFL success is not only vocabulary — it is noticing structure, purpose, and evidence.'
-      : '';
+    const firstStrategyReveal = !alreadyCompletedStrategy ? buildEvidenceStrategyLayerReveal(card, evaluation, supported) : '';
     setFeedback(firstStrategyReveal || reveal || `${evaluation.summary} Repair: ${evaluation.repairs[0]}`);
   }
 
@@ -1025,9 +1043,7 @@ export function CoachApp() {
     const score = evaluation.score;
     const supported = evaluation.band !== 'ready';
     const streakUpdate = updateStreak(state.lastActiveDate);
-    const alreadyCompletedStrategy = state.practiceHistory.some((entry) =>
-      strategyCardIds.some((id) => entry.id.startsWith(id)),
-    );
+    const alreadyCompletedStrategy = hasCompletedStrategyLayer(state.practiceHistory);
 
     const nextState: AppState = {
       ...state,
@@ -1059,9 +1075,7 @@ export function CoachApp() {
 
     setLastSpeakingEvaluation(evaluation);
     const reveal = buildDailyMissionReveal(state, nextState);
-    const firstStrategyReveal = isStrategyLayerCard(card.id) && !alreadyCompletedStrategy
-      ? 'Strategy unlocked. You just learned one of the hidden logic skills behind high TOEFL performance. TOEFL success is not only vocabulary — it is noticing structure, purpose, and evidence.'
-      : '';
+    const firstStrategyReveal = !alreadyCompletedStrategy ? buildEvidenceStrategyLayerReveal(card, evaluation, supported) : '';
     setFeedback(firstStrategyReveal || reveal || `${evaluation.summary} Repair: ${evaluation.repairs[0]}`);
   }
 
