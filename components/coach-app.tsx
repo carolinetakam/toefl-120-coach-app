@@ -1507,7 +1507,10 @@ export function CoachApp() {
                       <button
                         key={card.id}
                         className="sectionCard stack"
-                        onClick={() => selectPracticeCard(card)}
+                        onClick={() => {
+                          selectPracticeCard(card);
+                          setTab('library');
+                        }}
                       >
                         <span className="chip">{sectionLabels[card.section]}</span>
                         <h3>{card.title}</h3>
