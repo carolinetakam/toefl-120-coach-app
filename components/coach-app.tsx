@@ -37,6 +37,12 @@ const tabs: Array<{ key: TabKey; label: string }> = [
 ];
 
 const sectionOrder: Section[] = ['reading', 'listening', 'speaking', 'writing'];
+const strategyCardIds = ['pr-r-9', 'pr-l-9', 'pr-s-7', 'pr-w-7'];
+
+function isStrategyLayerCard(cardId: string) {
+  return strategyCardIds.includes(cardId);
+}
+
 const speakingChecks = ['Clear main idea', 'Source detail included', 'Finished cleanly'];
 const diagnosticStartedAtKey = 'toefl-120-coach-diagnostic-started-at';
 const launchSmokeChecksKey = 'toefl-120-coach-launch-smoke-checks';
@@ -370,6 +376,13 @@ export function CoachApp() {
     [state.reviewQueue],
   );
   const orderedPracticeCards = useMemo(() => prioritizePracticeCards(state, section), [section, state]);
+  const strategyLayerCards = useMemo(
+    () =>
+      sectionOrder.flatMap((item) =>
+        practiceCards[item].filter((card) => strategyCardIds.includes(card.id)),
+      ),
+    [],
+  );
   const recommendedDrillIds = useMemo(
     () => new Set(generateRecommendedDrills(orderedPracticeCards, state.sectionScores, state.subskillScores, 1).map((drill) => drill.cardId)),
     [orderedPracticeCards, state.sectionScores, state.subskillScores],
@@ -676,6 +689,9 @@ export function CoachApp() {
     const reviewCard = buildReviewCard(card);
     const streakUpdate = updateStreak(state.lastActiveDate);
     const metadata = getPracticeCardMetadata(card);
+    const alreadyCompletedStrategy = state.practiceHistory.some((entry) =>
+      strategyCardIds.some((id) => entry.id.startsWith(id)),
+    );
 
     const nextState: AppState = {
       ...state,
@@ -710,7 +726,10 @@ export function CoachApp() {
     setState(nextState);
 
     const reveal = buildDailyMissionReveal(state, nextState);
-    setFeedback(reveal || (correct ? `Strong work. ${metadata.cue} ${card.explanation}` : `Logged for repair. ${buildRepairNote(metadata)}`));
+    const firstStrategyReveal = isStrategyLayerCard(card.id) && !alreadyCompletedStrategy
+      ? 'Strategy unlocked. You just learned one of the hidden logic skills behind high TOEFL performance. TOEFL success is not only vocabulary — it is noticing structure, purpose, and evidence.'
+      : '';
+    setFeedback(firstStrategyReveal || reveal || (correct ? `Strong work. ${metadata.cue} ${card.explanation}` : `Logged for repair. ${buildRepairNote(metadata)}`));
   }
 
   function submitChoice(card: PracticeCard, choice: number) {
@@ -729,6 +748,9 @@ export function CoachApp() {
     const score = evaluation.score;
     const supported = evaluation.band !== 'ready';
     const streakUpdate = updateStreak(state.lastActiveDate);
+    const alreadyCompletedStrategy = state.practiceHistory.some((entry) =>
+      strategyCardIds.some((id) => entry.id.startsWith(id)),
+    );
 
     const nextState: AppState = {
       ...state,
@@ -760,7 +782,10 @@ export function CoachApp() {
 
     setLastWritingEvaluation(evaluation);
     const reveal = buildDailyMissionReveal(state, nextState);
-    setFeedback(reveal || `${evaluation.summary} Repair: ${evaluation.repairs[0]}`);
+    const firstStrategyReveal = isStrategyLayerCard(card.id) && !alreadyCompletedStrategy
+      ? 'Strategy unlocked. You just learned one of the hidden logic skills behind high TOEFL performance. TOEFL success is not only vocabulary — it is noticing structure, purpose, and evidence.'
+      : '';
+    setFeedback(firstStrategyReveal || reveal || `${evaluation.summary} Repair: ${evaluation.repairs[0]}`);
   }
 
   async function startRecording() {
@@ -1000,6 +1025,9 @@ export function CoachApp() {
     const score = evaluation.score;
     const supported = evaluation.band !== 'ready';
     const streakUpdate = updateStreak(state.lastActiveDate);
+    const alreadyCompletedStrategy = state.practiceHistory.some((entry) =>
+      strategyCardIds.some((id) => entry.id.startsWith(id)),
+    );
 
     const nextState: AppState = {
       ...state,
@@ -1031,7 +1059,10 @@ export function CoachApp() {
 
     setLastSpeakingEvaluation(evaluation);
     const reveal = buildDailyMissionReveal(state, nextState);
-    setFeedback(reveal || `${evaluation.summary} Repair: ${evaluation.repairs[0]}`);
+    const firstStrategyReveal = isStrategyLayerCard(card.id) && !alreadyCompletedStrategy
+      ? 'Strategy unlocked. You just learned one of the hidden logic skills behind high TOEFL performance. TOEFL success is not only vocabulary — it is noticing structure, purpose, and evidence.'
+      : '';
+    setFeedback(firstStrategyReveal || reveal || `${evaluation.summary} Repair: ${evaluation.repairs[0]}`);
   }
 
   function handleReview(card: ReviewCard, remembered: boolean) {
@@ -1456,6 +1487,36 @@ export function CoachApp() {
                   <button className="ghost compactButton" onClick={() => setTab('library')}>Open practice library</button>
                 </div>
               </div>
+
+              <section className="panel stack">
+                <div className="sectionHeader">
+                  <div>
+                    <p className="eyebrow">Strategy Layer</p>
+                    <h2>High-score habits</h2>
+                    <p className="copy">
+                      120-style prep with 2026 readiness notes. These cards teach transferable TOEFL skills without pretending this is an official 2026 simulator.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid two">
+                  {strategyLayerCards.map((card) => {
+                    const metadata = getPracticeCardMetadata(card);
+
+                    return (
+                      <button
+                        key={card.id}
+                        className="sectionCard stack"
+                        onClick={() => selectPracticeCard(card)}
+                      >
+                        <span className="chip">{sectionLabels[card.section]}</span>
+                        <h3>{card.title}</h3>
+                        <p className="copy">{metadata.cue}</p>
+                      </button>
+                    );
+                  })}
+                </div>
+              </section>
             </section>
           )}
 
@@ -1507,7 +1568,14 @@ export function CoachApp() {
                     <span className="mini">Strategy {currentCardMetadata.strategyCardId}</span>
                     <span className="mini">{Math.round(currentCardMetadata.timingSeconds / 60)} min target</span>
                   </div>
-                  <p>{currentCardMetadata.cue}</p>
+                  {isStrategyLayerCard(currentCard.id) ? (
+                    <div className="subPanel stack">
+                      <strong>2026 readiness note</strong>
+                      <p>{currentCardMetadata.cue}</p>
+                    </div>
+                  ) : (
+                    <p>{currentCardMetadata.cue}</p>
+                  )}
                   <p className="copy">Watch for: {currentCardMetadata.traps.join('; ')}.</p>
                 </div>
 

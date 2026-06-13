@@ -91,6 +91,14 @@ const subskillTemplates: Record<string, Partial<MetadataTemplate>> = {
     cue: 'Check the nearest logical antecedent and reread the full sentence.',
     repairRule: 'Redo a reference card and say the pronoun replacement out loud.',
   },
+  'sentence insertion': {
+    questionType: 'sentence_insertion',
+    strategyCardId: 'R-010',
+    timingSeconds: 90,
+    traps: ['placing a sentence before its pronoun reference is clear', 'ignoring transition flow'],
+    cue: '2026 readiness: use pronouns, transitions, and known-new idea flow to place the sentence.',
+    repairRule: 'Redo one sentence insertion card and name the pronoun/reference clue before choosing the slot.',
+  },
   'negative factual information': {
     questionType: 'negative_factual',
     strategyCardId: 'R-006',
@@ -164,6 +172,14 @@ const subskillTemplates: Record<string, Partial<MetadataTemplate>> = {
     cue: 'Mark cause arrows quickly: change -> effect -> evidence.',
     repairRule: 'Redo one listening card and label each reason/effect pair before choosing an answer.',
   },
+  'campus roles': {
+    questionType: 'campus_roles',
+    strategyCardId: 'L-003',
+    timingSeconds: 75,
+    traps: ['confusing official records with class help', 'missing the speaker role before answering'],
+    cue: '2026 readiness: sort the campus role first — professor, adviser, registrar — then answer.',
+    repairRule: 'Redo one campus conversation card and label each speaker role before choosing the answer.',
+  },
   fluency: {
     questionType: 'independent_speaking',
     strategyCardId: 'S-001',
@@ -184,6 +200,14 @@ const subskillTemplates: Record<string, Partial<MetadataTemplate>> = {
     traps: ['jumping between examples', 'missing the source order'],
     cue: 'Open with the main idea, then follow the source order with one example at a time.',
     repairRule: 'Record a redo that uses source order labels before each example.',
+  },
+  'integrated speaking template': {
+    questionType: 'integrated_speaking_template',
+    strategyCardId: 'S-003',
+    timingSeconds: 60,
+    traps: ['using the template as a script', 'missing source order', 'adding personal opinion'],
+    cue: 'Template reveal: use the scaffold to protect source order, then remove extra wording.',
+    repairRule: 'Record one integrated speaking redo using the five-beat template, then cut one unnecessary phrase.',
   },
   'clarity/pronunciation': {
     questionType: 'speaking_delivery',
@@ -211,6 +235,14 @@ const subskillTemplates: Record<string, Partial<MetadataTemplate>> = {
     strategyCardId: 'W-001',
     traps: ['adding personal opinion', 'summarizing reading without lecture challenge'],
     cue: 'Pair each reading claim with the lecture challenge.',
+    repairRule: 'Rewrite one body paragraph as reading claim -> lecture challenge -> result.',
+  },
+  'integrated writing outline': {
+    questionType: 'integrated_writing_outline',
+    strategyCardId: 'W-001',
+    timingSeconds: 600,
+    traps: ['summarizing only one source', 'adding personal opinion', 'writing before source pairs are clear'],
+    cue: '2026 readiness: build the outline from source pairs before drafting.',
     repairRule: 'Rewrite one body paragraph as reading claim -> lecture challenge -> result.',
   },
   'discussion response quality': {

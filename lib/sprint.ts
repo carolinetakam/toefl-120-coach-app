@@ -71,7 +71,7 @@ export const sectionPlaybooks: Record<Section, SectionPlaybook> = {
   reading: {
     section: 'reading',
     title: 'Reading: synonym and evidence game',
-    testShape: 'Classic prep pattern: passages with sequential questions. Current-format prep still rewards fast evidence matching and paragraph-purpose tracking.',
+    testShape: '120-style prep + 2026 readiness: classic reading skills still matter, but this is not an official score or full 2026 simulator.',
     winCondition: 'Answer from the text, not from memory. Rephrase the question, locate the evidence, then choose the closest meaning.',
     noteFormat: ['Title/main topic', 'Paragraph purpose labels', 'Question keywords', 'Evidence sentence'],
     template: [
@@ -87,7 +87,7 @@ export const sectionPlaybooks: Record<Section, SectionPlaybook> = {
   listening: {
     section: 'listening',
     title: 'Listening: structure before details',
-    testShape: 'Campus and academic audio reward purpose, role, transitions, examples, attitude, and decision tracking.',
+    testShape: '120-style prep + 2026 readiness: campus and academic audio skills still matter, but this is not an official score or full 2026 simulator.',
     winCondition: 'Capture why the speaker says each major point, not every word.',
     noteFormat: ['Purpose/problem', 'Main point', 'Example 1/2', 'Contrast or attitude', 'Decision/result'],
     template: [
@@ -102,7 +102,7 @@ export const sectionPlaybooks: Record<Section, SectionPlaybook> = {
   speaking: {
     section: 'speaking',
     title: 'Speaking: template removes hesitation',
-    testShape: 'Classic TOEFL speaking used short prep and 45-60 second responses; current-format pages emphasize clear intelligibility, natural pace, and structured answers.',
+    testShape: '120-style prep + 2026 readiness: short-prep speaking templates build clarity and pace, but this is not an official score or full 2026 simulator.',
     winCondition: 'Start fast, use one clear structure, include source/detail when required, and finish the final sentence.',
     noteFormat: ['Main idea', 'Reason/source point', 'Example/detail', 'Finish sentence'],
     template: [
@@ -117,7 +117,7 @@ export const sectionPlaybooks: Record<Section, SectionPlaybook> = {
   writing: {
     section: 'writing',
     title: 'Writing: scaffold, then revise',
-    testShape: 'Classic integrated writing and academic discussion are template-friendly. Current-format writing also rewards task focus, grammar control, and practical communication.',
+    testShape: '120-style prep + 2026 readiness: integrated and academic discussion practice builds task control, but this is not an official score or full 2026 simulator.',
     winCondition: 'Make the task relationship obvious: claim, support, example, and source/peer response.',
     noteFormat: ['Prompt demand', 'Stance or source claim', 'Reason 1', 'Concrete example/detail', 'Revision target'],
     template: [

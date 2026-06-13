@@ -311,6 +311,18 @@ export const practiceCards: Record<Section, PracticeCard[]> = {
       xp: 16,
       followUp: 'Write a 5-word label you could give a tough paragraph instead of rereading everything.',
     },
+    {
+      id: 'pr-r-9',
+      section: 'reading',
+      title: 'Sentence insertion: pronoun placement',
+      subskill: 'sentence insertion',
+      prompt: 'Sentence to insert: “These changes made the new habitat easier for young birds to use.” Paragraph: Restoration workers first removed invasive reeds from the marsh. [A] They then opened narrow channels so water could circulate again. [B] Young fish returned within a season. [C] The larger bird population recovered more slowly. [D] Where does the sentence fit best?',
+      choices: ['A', 'B', 'C', 'D'],
+      answer: 2,
+      explanation: '“These changes” must refer to the removal and water-channel work, and the sentence prepares for the young fish/bird recovery evidence.',
+      xp: 22,
+      followUp: 'Name the noun or action that the pronoun points back to before choosing the slot.',
+    },
   ],
   listening: [
     {
@@ -409,6 +421,18 @@ export const practiceCards: Record<Section, PracticeCard[]> = {
       xp: 18,
       followUp: 'What two-note symbols could help you capture this relationship faster next time?',
     },
+    {
+      id: 'pr-l-9',
+      section: 'listening',
+      title: 'Campus roles: professor, adviser, registrar',
+      subskill: 'campus roles',
+      prompt: 'A student asks where to fix a wrong course registration record. Which office is most likely to help?',
+      choices: ['Professor', 'Academic adviser', 'Registrar', 'Campus dining office'],
+      answer: 2,
+      explanation: 'A registrar handles official registration records and files. Professors help with class expectations or grades; advisers help choose plans and schedules.',
+      xp: 18,
+      followUp: 'Sort the problem first: assignment/class help, schedule planning, or official record?',
+    },
   ],
   speaking: [
     {
@@ -471,6 +495,16 @@ export const practiceCards: Record<Section, PracticeCard[]> = {
       xp: 24,
       followUp: 'Did you include both the problem and the reason the recommended solution is better?',
     },
+    {
+      id: 'pr-s-7',
+      section: 'speaking',
+      title: 'Template reveal: integrated speaking',
+      subskill: 'integrated speaking template',
+      prompt: 'Use this optional scaffold for a 60-second integrated answer: “The reading announces ___. The student/professor agrees/disagrees because ___. First, ___. Second, ___. Overall, the listening shows ___.” Record a response to any earlier integrated prompt using only these five beats.',
+      explanation: 'The template is a temporary rail, not a script to memorize. It protects source order, reasons, and a clean final sentence.',
+      xp: 24,
+      followUp: 'After recording, remove one unnecessary template phrase while keeping the same structure.',
+    },
   ],
   writing: [
     {
@@ -532,6 +566,16 @@ export const practiceCards: Record<Section, PracticeCard[]> = {
       explanation: 'This card rewards a visible editing pass because repeated grammar errors can quietly cap an otherwise strong response.',
       xp: 20,
       followUp: 'List the two grammar patterns you corrected most often in your revision.',
+    },
+    {
+      id: 'pr-w-7',
+      section: 'writing',
+      title: 'Outline builder: integrated writing',
+      subskill: 'integrated writing outline',
+      prompt: 'Before drafting, fill this outline: Reading claim 1 -> Lecture challenge 1; Reading claim 2 -> Lecture challenge 2; Reading claim 3 -> Lecture challenge 3. Then write one body paragraph from one pair using present tense and no personal opinion.',
+      explanation: 'Integrated writing becomes easier when every body paragraph has a clear source pair: what the reading claims and how the lecture challenges it.',
+      xp: 26,
+      followUp: 'Check whether your paragraph has both source sides, not just a reading summary or lecture summary.',
     },
   ],
 };
