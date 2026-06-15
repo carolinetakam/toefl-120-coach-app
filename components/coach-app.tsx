@@ -36,6 +36,20 @@ type AuthState = {
   isGuest: boolean;
 };
 
+type TaskContext = {
+  taskId: string;
+  taskType: 'exercise' | 'card' | 'miniMock' | 'repair';
+  sourcePage: 'path' | 'library' | 'progress' | 'dashboard';
+  dayNumber?: number;
+  prompt: string;
+  title: string;
+  userNote?: string;
+  returnTo?: TabKey;
+};
+
+type RecorderState = 'idle' | 'permission-checking' | 'recording' | 'paused' | 'stopped' | 'playback' | 'error';
+type MicrophonePermissionState = 'unknown' | 'granted' | 'denied' | 'prompt';
+
 type GuestSession = {
   id: string;
   createdAt: string;
@@ -63,6 +77,7 @@ const diagnosticStartedAtKey = 'toefl-120-coach-diagnostic-started-at';
 const launchSmokeChecksKey = 'toefl-120-coach-launch-smoke-checks';
 const guestSessionKey = 'toefl-120-coach-guest-session';
 const speakingRecordingLimitSeconds = 60;
+const microphoneBlockedFallbackMessage = 'Microphone access is blocked. You can still practice using Self-Rating Mode, or enable microphone access to record your answer.';
 
 const pathStatusLabels: Record<UnlockStatus, string> = {
   completed: '✓ Completed',
@@ -80,6 +95,38 @@ const pathStatusBadgeClass: Record<UnlockStatus, string> = {
 
 function pathStatusClass(status: UnlockStatus) {
   return `pathCard-${status.replace('_', '-')}`;
+}
+
+function sourcePageFromTab(tab: TabKey): TaskContext['sourcePage'] {
+  if (tab === 'today') return 'dashboard';
+  if (tab === 'path' || tab === 'progress' || tab === 'library') return tab;
+  return 'library';
+}
+
+function taskContextForCard(card: PracticeCard, sourcePage: TaskContext['sourcePage'], dayNumber?: number, userNote?: string): TaskContext {
+  const isRepair = card.id.startsWith('repair-') || card.xp === 0;
+  return {
+    taskId: card.id,
+    taskType: isRepair ? 'repair' : 'card',
+    sourcePage,
+    dayNumber,
+    prompt: card.prompt,
+    title: card.title,
+    userNote,
+    returnTo: sourcePage === 'dashboard' ? 'today' : sourcePage,
+  };
+}
+
+function taskContextForMock(mockId: string, title: string, prompt: string, sourcePage: TaskContext['sourcePage'], dayNumber?: number): TaskContext {
+  return {
+    taskId: mockId,
+    taskType: 'miniMock',
+    sourcePage,
+    dayNumber,
+    prompt,
+    title,
+    returnTo: sourcePage === 'dashboard' ? 'today' : sourcePage,
+  };
 }
 
 function formatPercent(value: number) {
@@ -338,6 +385,11 @@ export function CoachApp() {
   const [showMockTranscript, setShowMockTranscript] = useState(false);
   const [revealedReviewIds, setRevealedReviewIds] = useState<Record<string, boolean>>({});
   const [recording, setRecording] = useState(false);
+  const [recorderState, setRecorderState] = useState<RecorderState>('idle');
+  const [microphonePermissionState, setMicrophonePermissionState] = useState<MicrophonePermissionState>('unknown');
+  const [microphoneMessage, setMicrophoneMessage] = useState('');
+  const [showMicrophoneHelp, setShowMicrophoneHelp] = useState(false);
+  const [taskContext, setTaskContext] = useState<TaskContext | null>(null);
   const [audioUrl, setAudioUrl] = useState<string>();
   const [clockNow, setClockNow] = useState(() => Date.now());
   const [diagnosticStartedAt, setDiagnosticStartedAt] = useState<number | null>(null);
@@ -352,6 +404,8 @@ export function CoachApp() {
   const recorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Blob[]>([]);
+  const taskPromptRef = useRef<HTMLDivElement | null>(null);
+  const selfRatingRef = useRef<HTMLLabelElement | null>(null);
   const localStateRef = useRef<AppState>(initialState);
   const authModeRef = useRef<string | undefined>(undefined);
   const previousAuthStatusRef = useRef<AuthStatus>('loading');
@@ -367,6 +421,29 @@ export function CoachApp() {
   const convexState = useQuery(api.coach.getAppState, authState.status === 'authenticated' ? {} : 'skip');
   const saveConvexState = useMutation(api.coach.saveAppState);
   const deleteConvexData = useMutation(api.coach.deleteMyData);
+
+  const resetPersonalizedUiState = useCallback(() => {
+    submittedChoicesRef.current = {};
+    restoredMockSelectionRef.current = false;
+    mockAutosaveReadyRef.current = false;
+    setSubmittedChoices({});
+    setDiagnosticIndex(0);
+    setDiagnosticChoice(null);
+    setCurrentMockId(mockTests[0].id);
+    setMockAnswers({});
+    setMockNotes('');
+    setMockSpeakingNotes('');
+    setMockWriting('');
+    setMockRubric({});
+    setMockSubmitted(false);
+    setDiagnosticStartedAt(null);
+    setRecordingStartedAt(null);
+    setTaskContext(null);
+    setRecorderState('idle');
+    setMicrophonePermissionState('unknown');
+    setMicrophoneMessage('');
+    setTab('today');
+  }, []);
 
   useEffect(() => {
     if (!authLoaded) return;
@@ -439,7 +516,7 @@ export function CoachApp() {
     setState(initialState);
     setSyncReady(false);
     setSaveStatus('Local');
-  }, [authState.status]);
+  }, [authState.status, resetPersonalizedUiState]);
 
   useEffect(() => {
     if (!ready || !authLoaded || syncReady) return;
@@ -589,6 +666,9 @@ export function CoachApp() {
   const mockLimitSeconds = currentMock.minutes * 60;
   const mockTimeRemaining = Math.max(0, mockLimitSeconds - mockElapsed);
   const mockTimed = mockElapsed > 0;
+  const activeTaskContext = taskContext && (taskContext.taskId === currentCard.id || taskContext.taskType === 'miniMock')
+    ? taskContext
+    : taskContextForCard(currentCard, sourcePageFromTab(tab));
 
   useEffect(() => {
     if (!currentCardSelection.recoveryMessage) return;
@@ -708,7 +788,18 @@ export function CoachApp() {
     recorderRef.current = null;
     setRecordingStartedAt(null);
     setRecording(false);
+    setRecorderState((current) => current === 'recording' || current === 'permission-checking' ? 'idle' : current);
   }, []);
+
+  const stopRecording = useCallback(() => {
+    if (recorderRef.current?.state === 'recording') {
+      recorderRef.current.stop();
+    }
+    streamRef.current?.getTracks().forEach((track) => track.stop());
+    setRecordingStartedAt(null);
+    setRecording(false);
+    setRecorderState(audioUrl ? 'playback' : 'stopped');
+  }, [audioUrl]);
 
   useEffect(() => cleanupRecording, [cleanupRecording]);
 
@@ -743,8 +834,8 @@ export function CoachApp() {
     if (!recording || !recordingStartedAt) return;
     if (elapsedSeconds(recordingStartedAt, clockNow) < speakingRecordingLimitSeconds) return;
     stopRecording();
-    setFeedback('Recording stopped at 60 seconds. Review playback, then save the speaking attempt.');
-  }, [clockNow, recording, recordingStartedAt]);
+    setFeedback('Recording stopped at 60 seconds. Review playback, then submit the speaking attempt.');
+  }, [clockNow, recording, recordingStartedAt, stopRecording]);
 
   useEffect(() => {
     if (!mockStartedAt || mockElapsed < mockLimitSeconds) return;
@@ -782,25 +873,6 @@ export function CoachApp() {
   function openAccountSignUp() {
     setSignedOutLocally(false);
     openSignUp();
-  }
-
-  function resetPersonalizedUiState() {
-    submittedChoicesRef.current = {};
-    restoredMockSelectionRef.current = false;
-    mockAutosaveReadyRef.current = false;
-    setSubmittedChoices({});
-    setDiagnosticIndex(0);
-    setDiagnosticChoice(null);
-    setCurrentMockId(mockTests[0].id);
-    setMockAnswers({});
-    setMockNotes('');
-    setMockSpeakingNotes('');
-    setMockWriting('');
-    setMockRubric({});
-    setMockSubmitted(false);
-    setDiagnosticStartedAt(null);
-    setRecordingStartedAt(null);
-    setTab('today');
   }
 
   function continueAsGuest() {
@@ -912,10 +984,11 @@ export function CoachApp() {
     setFeedback('Fresh diagnostic form loaded. Use this when you already know the previous answers.');
   }
 
-  function selectPracticeCard(card: PracticeCard) {
+  function selectPracticeCard(card: PracticeCard, context?: TaskContext) {
     cleanupRecording();
     setSection(card.section);
     setSelectedCardId((prev) => ({ ...prev, [card.section]: card.id }));
+    setTaskContext(context ?? taskContextForCard(card, sourcePageFromTab(tab)));
     setFeedback('');
   }
 
@@ -1019,13 +1092,38 @@ export function CoachApp() {
 
   async function startRecording() {
     if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
+      setRecorderState('error');
+      setMicrophonePermissionState('unknown');
+      setMicrophoneMessage('Microphone recording is not supported here. You can still self-rate the response.');
       setFeedback('Microphone recording is not supported here. You can still self-rate the response.');
       return;
     }
 
     try {
+      setRecorderState('permission-checking');
+      setMicrophoneMessage('');
+      if (navigator.permissions?.query) {
+        try {
+          const permission = await navigator.permissions.query({ name: 'microphone' as PermissionName });
+          setMicrophonePermissionState(permission.state as MicrophonePermissionState);
+          permission.onchange = () => setMicrophonePermissionState(permission.state as MicrophonePermissionState);
+          if (permission.state === 'denied') {
+            setRecorderState('error');
+            setMicrophoneMessage(microphoneBlockedFallbackMessage);
+            setFeedback(microphoneBlockedFallbackMessage);
+            return;
+          }
+        } catch {
+          setMicrophonePermissionState('unknown');
+        }
+      }
+
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const recorder = new MediaRecorder(stream);
+      if (audioUrl?.startsWith('blob:')) {
+        URL.revokeObjectURL(audioUrl);
+      }
+      setAudioUrl(undefined);
       streamRef.current = stream;
       chunksRef.current = [];
       recorder.ondataavailable = (event) => chunksRef.current.push(event.data);
@@ -1038,6 +1136,7 @@ export function CoachApp() {
         recorderRef.current = null;
         setRecordingStartedAt(null);
         setRecording(false);
+        setRecorderState('playback');
       };
       recorder.start();
       recorderRef.current = recorder;
@@ -1045,19 +1144,30 @@ export function CoachApp() {
       setRecordingStartedAt(startedAt);
       setClockNow(startedAt);
       setRecording(true);
+      setRecorderState('recording');
+      setMicrophonePermissionState('granted');
       setFeedback('Recording... keep the answer compact and clear.');
-    } catch {
-      setFeedback('Microphone access was blocked. Self-rating mode is still available.');
+    } catch (error) {
+      const isDenied = error instanceof DOMException && (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError');
+      const message = isDenied
+        ? microphoneBlockedFallbackMessage
+        : 'Microphone recording could not start. Check your input device, then try again or use self-rating mode.';
+      setRecorderState('error');
+      setMicrophonePermissionState(isDenied ? 'denied' : 'unknown');
+      setMicrophoneMessage(message);
+      setFeedback(message);
     }
   }
 
-  function stopRecording() {
-    if (recorderRef.current?.state === 'recording') {
-      recorderRef.current.stop();
+  function rerecordSpeaking() {
+    cleanupRecording();
+    if (audioUrl?.startsWith('blob:')) {
+      URL.revokeObjectURL(audioUrl);
     }
-    streamRef.current?.getTracks().forEach((track) => track.stop());
-    setRecordingStartedAt(null);
-    setRecording(false);
+    setAudioUrl(undefined);
+    setRecorderState('idle');
+    setMicrophoneMessage('');
+    void startRecording();
   }
 
   function playMockListening() {
@@ -1119,18 +1229,26 @@ export function CoachApp() {
   function startSprintNextAction() {
     if (sprintNextAction.type === 'mock') {
       selectMock(sprintNextAction.mockId);
+      const mock = mockTests.find((item) => item.id === sprintNextAction.mockId);
+      if (mock) {
+        setTaskContext(taskContextForMock(mock.id, mock.title, mock.speakingPrompt, sourcePageFromTab(tab)));
+      }
       setTab('path');
       return;
     }
 
     const card = requireSprintPracticeCard(sprintNextAction);
-    selectPracticeCard(card);
+    selectPracticeCard(card, taskContextForCard(card, sourcePageFromTab(tab), undefined, sprintNextAction.reason));
     setTab('library');
   }
 
-  function startSprintAction(action: SprintAction) {
+  function startSprintAction(action: SprintAction, sourcePage = sourcePageFromTab(tab), dayNumber?: number) {
     if (action.type === 'mock') {
       selectMock(action.mockId);
+      const mock = mockTests.find((item) => item.id === action.mockId);
+      if (mock) {
+        setTaskContext(taskContextForMock(mock.id, mock.title, mock.speakingPrompt, sourcePage, dayNumber));
+      }
       setTab('path');
       return;
     }
@@ -1145,7 +1263,7 @@ export function CoachApp() {
     }
 
     const card = requireSprintPracticeCard(action);
-    selectPracticeCard(card);
+    selectPracticeCard(card, taskContextForCard(card, sourcePage, dayNumber, action.reason));
     setTab('library');
     setFeedback(action.reason);
   }
@@ -1164,10 +1282,47 @@ export function CoachApp() {
     const action = getFirstValidPathAction(day);
     if (!action) return;
 
-    startSprintAction(action);
+    startSprintAction(action, 'path', day.day);
     if (day.status === 'available_optional') {
       setFeedback(`Optional sprint override opened: ${action.reason}`);
     }
+  }
+
+  function returnToTaskSource() {
+    const destination = taskContext?.returnTo ?? (taskContext?.sourcePage === 'dashboard' ? 'today' : taskContext?.sourcePage);
+    if (!destination) return;
+    setTab(destination);
+  }
+
+  function useSelfRatingMode() {
+    setRecorderState('idle');
+    setMicrophoneMessage('Self-Rating Mode is active. Rate your answer and add a reflection note without recording.');
+    setFeedback('Self-Rating Mode is active. You can complete this same task without recording audio.');
+    selfRatingRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
+  function enableMicrophoneHelp() {
+    setShowMicrophoneHelp(true);
+    setFeedback('Microphone help is open. Enable access in your browser or device settings, then reload this page.');
+  }
+
+  function backToExercisePrompt() {
+    setShowMicrophoneHelp(false);
+    setFeedback('Returned to the current exercise prompt. Your notes and task context are still here.');
+    taskPromptRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
+  function startMockSpeakingEvidence() {
+    const card = practiceCards.speaking.find((item) => item.id === 'pr-s-2') ?? practiceCards.speaking[0];
+    selectPracticeCard(card, {
+      ...taskContextForCard(card, 'path', undefined, `Mini mock speaking evidence for ${currentMock.title}`),
+      taskType: 'miniMock',
+      taskId: currentMock.id,
+      title: currentMock.title,
+      prompt: currentMock.speakingPrompt,
+      returnTo: 'path',
+    });
+    setTab('library');
   }
 
   function getPathDayActionLabel(day: PathDayView) {
@@ -1442,6 +1597,7 @@ export function CoachApp() {
   const relatedPracticeCards = orderedPracticeCards
     .filter((card) => card.id !== currentCard.id && card.id !== firstRecommendedCard.id)
     .slice(0, 3);
+  const canChooseAnotherCard = relatedPracticeCards.length > 0;
   const learnerName = authState.status === 'unauthenticated'
     ? 'Signed out'
     : authState.status === 'guest'
@@ -1918,7 +2074,10 @@ export function CoachApp() {
                       </button>
                     ))}
                     {selectedObjectiveChoice !== undefined && (
-                      <p className="copy">Answered. Correct choice: {(currentCard.answer ?? 0) + 1}. Choose another card to continue.</p>
+                      <div className="sectionCard row">
+                        <p className="copy">Submitted. Correct choice: {(currentCard.answer ?? 0) + 1}.</p>
+                        {canChooseAnotherCard && <span className="chip">Related cards available below</span>}
+                      </div>
                     )}
                   </div>
                 ) : currentCard.section === 'writing' ? (
@@ -1944,8 +2103,8 @@ export function CoachApp() {
                         placeholder="Revise for clearer structure, stronger support, and cleaner transitions..."
                       />
                     </div>
-                    <div className="chips"><span className="chip">{revisionWordCount} revision words</span><span className="chip">Autosaves after submit</span></div>
-                    <button className="cta" disabled={!writingDraft.trim()} onClick={() => submitWriting(currentCard)}>Save writing response</button>
+                    <div className="chips"><span className="chip">{revisionWordCount} revision words</span><span className="chip">Draft only until submitted</span></div>
+                    <button className="cta" disabled={!writingDraft.trim()} onClick={() => submitWriting(currentCard)}>Submit writing attempt</button>
                     {lastWritingEvaluation && (
                       <div className="sectionCard stack">
                         <div className="row">
@@ -1977,16 +2136,72 @@ export function CoachApp() {
                   </div>
                 ) : (
                   <div className="stack">
-                    <div className="row">
-                      <button className={recording ? 'secondary' : 'ghost'} onClick={recording ? stopRecording : startRecording}>{recording ? 'Stop recording' : 'Start recording'}</button>
-                      <span className="mini">
-                        {recording
-                          ? `Recording ${formatElapsedSeconds(recordingElapsed)} / ${formatElapsedSeconds(speakingRecordingLimitSeconds)}`
-                          : `Browser mic capture when supported. Limit ${formatElapsedSeconds(speakingRecordingLimitSeconds)}`}
-                      </span>
+                    <div className="recorderPanel stack" aria-live="polite">
+                      <div className="row">
+                        <div>
+                          <span className="kicker">Recording</span>
+                          <h3>{activeTaskContext.title}</h3>
+                        </div>
+                        <span className={recorderState === 'recording' ? 'pill-bad' : recorderState === 'playback' ? 'pill-good' : recorderState === 'error' ? 'pill-warn' : 'chip'}>
+                          {recorderState}
+                        </span>
+                      </div>
+                      <div className="taskContextBox stack" ref={taskPromptRef}>
+                        <span className="mini">
+                          Source: {activeTaskContext.sourcePage}{activeTaskContext.dayNumber ? ` • Day ${activeTaskContext.dayNumber}` : ''} • {activeTaskContext.taskType}
+                        </span>
+                        <p>{activeTaskContext.prompt}</p>
+                        {activeTaskContext.userNote && <p className="copy">{activeTaskContext.userNote}</p>}
+                      </div>
+                      <div className="recorderControls">
+                        <button className="recordButton" disabled={recording || recorderState === 'permission-checking'} onClick={startRecording}>
+                          {recorderState === 'permission-checking' ? 'Checking mic' : audioUrl ? 'Record again' : 'Record'}
+                        </button>
+                        <button className="secondary compactButton" disabled={!recording} onClick={stopRecording}>Stop</button>
+                        <button className="secondary compactButton" disabled={recording || !audioUrl} onClick={rerecordSpeaking}>Re-record</button>
+                        <span className="recordingTimer">
+                          {recording
+                            ? `${formatElapsedSeconds(recordingElapsed)} / ${formatElapsedSeconds(speakingRecordingLimitSeconds)}`
+                            : audioUrl
+                              ? 'Playback ready'
+                              : `Limit ${formatElapsedSeconds(speakingRecordingLimitSeconds)}`}
+                        </span>
+                      </div>
+                      <p className="copy">
+                        Microphone: {microphonePermissionState}. {microphoneMessage || 'Your audio stays local in this browser; completion stores only audio evidence.'}
+                      </p>
+                      {microphonePermissionState === 'denied' && (
+                        <div className="permissionPanel stack">
+                          <div className="stack" style={{ gap: 6 }}>
+                            <h3>Microphone access is blocked.</h3>
+                            <p>You can still practice using Self-Rating Mode, or enable microphone access to record your answer.</p>
+                          </div>
+                          <div className="chips">
+                            <button className="cta compactButton" onClick={useSelfRatingMode}>Use Self-Rating Mode</button>
+                            <button className="secondary compactButton" onClick={enableMicrophoneHelp}>Enable Microphone</button>
+                            <button className="ghost compactButton" onClick={backToExercisePrompt}>Back to Exercise</button>
+                          </div>
+                          {showMicrophoneHelp && (
+                            <div className="subPanel stack">
+                              <p className="copy">Chrome/Edge: open the lock icon in the address bar, set Microphone to Allow, then reload.</p>
+                              <p className="copy">Safari: open Website Settings or system Privacy settings, allow microphone access, then reload.</p>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      {audioUrl && (
+                        <div className="stack">
+                          <span className="mini">Playback</span>
+                          <audio controls src={audioUrl} />
+                        </div>
+                      )}
+                      {activeTaskContext.returnTo && activeTaskContext.sourcePage !== 'library' && (
+                        <button className="ghost compactButton" onClick={returnToTaskSource}>
+                          Return to {activeTaskContext.sourcePage === 'dashboard' ? 'Today' : activeTaskContext.sourcePage}
+                        </button>
+                      )}
                     </div>
-                    {audioUrl && <audio controls src={audioUrl} />}
-                    <label className="stack"><span>Self-rating (1-5)</span><input type="range" min={1} max={5} value={speakingRating} onChange={(e) => setSpeakingRating(Number(e.target.value))} /><span className="mini">{speakingRating} / 5</span></label>
+                    <label className="stack" ref={selfRatingRef}><span>Self-rating (1-5)</span><input type="range" min={1} max={5} value={speakingRating} onChange={(e) => setSpeakingRating(Number(e.target.value))} /><span className="mini">{speakingRating} / 5</span></label>
                     <div className="stack">
                       <label htmlFor="practice-speaking-reflection">Reflection note</label>
                       <textarea
@@ -1997,7 +2212,7 @@ export function CoachApp() {
                         placeholder="Example: intro too long, example was clear, pronunciation broke on two words..."
                       />
                     </div>
-                    <button className="cta" onClick={() => submitSpeaking(currentCard)}>Save speaking attempt</button>
+                    <button className="cta" onClick={() => submitSpeaking(currentCard)}>Submit speaking attempt</button>
                     {lastSpeakingEvaluation && (
                       <div className="sectionCard stack">
                         <div className="row">
@@ -2168,6 +2383,8 @@ export function CoachApp() {
                   {pathDayViews.map((day) => {
                     const actionLabel = getPathDayActionLabel(day);
                     const showCta = Boolean(actionLabel) && (day.status === 'current' || day.status === 'available_optional');
+                    const primaryAction = getFirstValidPathAction(day);
+                    const isRequiredRepair = day.status === 'current' && primaryAction?.type === 'practice';
                     return (
                       <div className={`sectionCard stack pathCard ${pathStatusClass(day.status)}`} key={day.day} aria-disabled={day.status === 'locked' ? true : undefined}>
                         <div className="row">
@@ -2176,6 +2393,8 @@ export function CoachApp() {
                               Day {day.day}
                             </span>
                             <span className={pathStatusBadgeClass[day.status]}>{pathStatusLabels[day.status]}</span>
+                            {isRequiredRepair && <span className="pill-bad">Required Repair</span>}
+                            {day.status === 'available_optional' && <span className="chip">Optional Practice</span>}
                           </div>
                           <span className="mini">{day.minutes} min</span>
                         </div>
@@ -2190,7 +2409,11 @@ export function CoachApp() {
                           <span className="mini">Focus work</span>
                           {day.tasks.slice(0, 3).map((task) => <p className="copy" key={`${day.day}-${task}`}>- {task}</p>)}
                         </div>
-                        <p className={day.status === 'locked' ? 'pathUnlockReason lockedReason' : 'pathUnlockReason'}>{day.unlockReason}</p>
+                        <p className={day.status === 'locked' ? 'pathUnlockReason lockedReason' : 'pathUnlockReason'}>
+                          {day.status === 'locked'
+                            ? `Day ${day.day} is locked because the required work before it is incomplete. ${day.unlockReason}`
+                            : day.unlockReason}
+                        </p>
                         {day.status === 'completed' && <p className="mini">✓ Saved evidence completed this step. No launch required.</p>}
                         {day.status === 'available_optional' && <p className="mini">Optional sprint work only — not required for today’s mission.</p>}
                         {showCta && (
@@ -2368,10 +2591,7 @@ export function CoachApp() {
 	                      {!hasSpeakingAudioEvidence && (
 	                        <button
 	                          className="secondary compactButton"
-	                          onClick={() => {
-	                            setSection('speaking');
-	                            setTab('library');
-	                          }}
+	                          onClick={startMockSpeakingEvidence}
 	                        >
 	                          Record speaking evidence
 	                        </button>

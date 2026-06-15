@@ -1,6 +1,6 @@
 # Next Phase Handoff: Beta Clearance to Official Launch
 
-Last updated: 2026-06-15 13:10 KST
+Last updated: 2026-06-15 14:37 KST
 Project: TOEFL 120 Coach  
 Repo: `/Users/carolinetakam/Documents/apps/toefl-120-coach-app-only`  
 Production: `https://score120coach.com`
@@ -10,6 +10,10 @@ Production: `https://score120coach.com`
 The codebase is a working beta candidate. Automated local gates pass and production public routes are live. The next phase is **not more feature building first**. The next phase is clearing the manual production trust gates, inviting a tiny beta cohort, then hardening only what real beta use exposes.
 
 **Current priority blocker:** the signed-in production sync smoke failed on 2026-06-15. Root cause was found in production Convex logs: `coach:saveAppState` was called but rejected by argument validation because the deployed validator did not accept `state.diagnosticFormId` and `state.speakingAttempts[].hasAudioEvidence`. Convex production was redeployed with the current validator and a backend-only save/restore shape check passed. The next owner must deploy the frontend instrumentation if not already deployed, then rerun the full same-account and different-account browser matrix.
+
+Addendum 2026-06-15 14:32 KST: local non-structural recording UX fixes are implemented and verified in `docs/implementation-reports/2026-06-15-recording-context-ux-fix.md`. These do not clear beta; production signed-in sync, backup/reset/import, and support email checks remain the launch blockers.
+
+Addendum 2026-06-15 14:37 KST: blocked microphone fallback actions are implemented and verified locally in `docs/implementation-reports/2026-06-15-microphone-blocked-fallback.md`. Manual real-browser permission testing remains required after deployment.
 
 ## Current launch decision
 
