@@ -4,7 +4,7 @@ import { ContentMetadata, PracticeCard, Section } from '@/lib/types';
 
 type MetadataTemplate = Omit<ContentMetadata, 'contentId' | 'section'>;
 
-const sectionMetadataProfiles: Record<Section, Omit<ContentMetadata, 'contentId' | 'section' | 'questionType'>> = {
+const sectionMetadataProfiles: Record<Section, Omit<ContentMetadata, 'contentId' | 'section' | 'questionType' | 'responseMode' | 'sourceMaterialCompleteness'>> = {
   reading: {
     taskType: 'read_academic_passage',
     strategyCardId: 'R-003',
@@ -109,11 +109,13 @@ const subskillTemplates: Record<string, Partial<MetadataTemplate>> = {
   },
   summary: {
     questionType: 'summary',
+    taskType: 'summary_only_reading_question',
     strategyCardId: 'R-011',
     timingSeconds: 95,
     traps: ['choosing true details', 'choosing duplicate or narrow ideas'],
     cue: 'Pick broad paragraph-level ideas, not details.',
     repairRule: 'Sort answer choices into main idea, detail, unrelated, or duplicate before answering.',
+    sourceMaterialCompleteness: 'summary_only',
   },
   pacing: {
     questionType: 'passage_workflow',
@@ -320,11 +322,21 @@ function buildApprovedMetadata(contentId: string, section: Section, subskill: st
     repairRule: overrides.repairRule ?? subskillTemplate.repairRule ?? sectionProfile.repairRule,
     sourceType: 'approved_seed',
     reviewStatus: 'approved',
+    responseMode: overrides.responseMode ?? subskillTemplate.responseMode ?? 'learner_answer',
+    sourceMaterialCompleteness: overrides.sourceMaterialCompleteness ?? subskillTemplate.sourceMaterialCompleteness,
   };
 }
 
 export const practiceCardMetadata: Record<string, ContentMetadata> = Object.fromEntries(
-  Object.values(practiceCards).flatMap((cards) => cards.map((card) => [card.id, buildApprovedMetadata(card.id, card.section, card.subskill)])),
+  Object.values(practiceCards).flatMap((cards) =>
+    cards.map((card) => [
+      card.id,
+      buildApprovedMetadata(card.id, card.section, card.subskill, {
+        responseMode: card.responseMode,
+        sourceMaterialCompleteness: card.sourceMaterialCompleteness,
+      }),
+    ]),
+  ),
 );
 
 export const mockQuestionMetadata: Record<string, ContentMetadata> = Object.fromEntries(
@@ -332,7 +344,7 @@ export const mockQuestionMetadata: Record<string, ContentMetadata> = Object.from
     mock.questions.map((question) => [
       question.id,
       buildApprovedMetadata(question.id, question.section, question.subskill, {
-        taskType: question.section === 'reading' ? 'mini_mock_reading_question' : 'mini_mock_listening_question',
+        taskType: question.subskill === 'summary' ? undefined : question.section === 'reading' ? 'mini_mock_reading_question' : 'mini_mock_listening_question',
         timingSeconds: 75,
       }),
     ]),
@@ -351,6 +363,8 @@ export const mockTestMetadata: Record<string, ContentMetadata> = Object.fromEntr
       traps: ['answering before notes are complete', 'treating the completion signal as an official TOEFL score'],
       cue: 'Take the mini mock like an exam, then use review to choose one repair drill.',
       repairRule: 'Review missed subskills and complete the first recommended section practice card.',
+      responseMode: 'learner_answer',
+      sourceMaterialCompleteness: 'complete',
     }),
   ]),
 );

@@ -464,6 +464,13 @@ export const practiceCards: Record<Section, PracticeCard[]> = {
       explanation: 'Organize by source relationship: proposal point, student concern, then next proposal point, student concern.',
       xp: 26,
       followUp: 'Did you clearly separate the reading claims from the student’s objections?',
+      responseMode: 'learner_answer',
+      sourceMaterialCompleteness: 'summary_only',
+      materials: {
+        reading: 'The university wants to expand the bike-share system to reduce traffic and parking pressure.',
+        listening: 'A student supports the goal but says current station locations are too limited and helmets are hard to borrow.',
+        template: 'Proposal -> student response -> reason one -> reason two.',
+      },
     },
     {
       id: 'pr-s-4',
@@ -474,6 +481,13 @@ export const practiceCards: Record<Section, PracticeCard[]> = {
       explanation: 'Use a short main idea sentence, then deliver the two examples in the same order the professor used.',
       xp: 26,
       followUp: 'Did your answer keep the lecture order, or did you jump between examples?',
+      responseMode: 'learner_answer',
+      sourceMaterialCompleteness: 'summary_only',
+      materials: {
+        lecture:
+          'The professor explains that bees communicate food location through movement patterns, then gives one example involving distance and another involving direction.',
+        template: 'Main idea -> distance example -> direction example -> final summary.',
+      },
     },
     {
       id: 'pr-s-5',
@@ -494,6 +508,13 @@ export const practiceCards: Record<Section, PracticeCard[]> = {
       explanation: 'Integrated speaking answers are stronger when you name the problem clearly, then explain the recommendation and reason without adding personal opinion.',
       xp: 24,
       followUp: 'Did you include both the problem and the reason the recommended solution is better?',
+      responseMode: 'learner_answer',
+      sourceMaterialCompleteness: 'summary_only',
+      materials: {
+        conversation:
+          'A student wants to add a class but cannot meet the advising deadline because of a regional sports trip. The advisor offers two options and explains why one is better.',
+        template: 'Problem -> option/recommendation -> reason -> result.',
+      },
     },
     {
       id: 'pr-s-7',
@@ -504,6 +525,12 @@ export const practiceCards: Record<Section, PracticeCard[]> = {
       explanation: 'The template is a temporary rail, not a script to memorize. It protects source order, reasons, and a clean final sentence.',
       xp: 24,
       followUp: 'After recording, remove one unnecessary template phrase while keeping the same structure.',
+      responseMode: 'template_only',
+      sourceMaterialCompleteness: 'template_only',
+      materials: {
+        template:
+          'The reading announces ___. The student/professor agrees/disagrees because ___. First, ___. Second, ___. Overall, the listening shows ___.',
+      },
     },
   ],
   writing: [
@@ -516,6 +543,15 @@ export const practiceCards: Record<Section, PracticeCard[]> = {
       explanation: 'Pair each lecture objection directly with the reading claim it challenges. Do not add your own opinion.',
       xp: 28,
       followUp: 'Check whether each body paragraph names the reading claim first and the lecture challenge second.',
+      responseMode: 'learner_answer',
+      sourceMaterialCompleteness: 'summary_only',
+      materials: {
+        reading:
+          'Urban rooftop farms can improve city food supply because they use unused space, reduce shipping distance, and teach communities about food production.',
+        lecture:
+          'The professor argues these benefits are overstated because rooftop yields are limited, setup costs are high, and educational value does not solve supply problems.',
+        template: 'Reading claim -> lecture challenge -> result.',
+      },
     },
     {
       id: 'pr-w-2',
@@ -526,6 +562,15 @@ export const practiceCards: Record<Section, PracticeCard[]> = {
       explanation: 'A strong structure usually means one paragraph per reading claim and a matching lecture rebuttal in each paragraph.',
       xp: 28,
       followUp: 'Did any paragraph drift into summary of only one source instead of comparison?',
+      responseMode: 'learner_answer',
+      sourceMaterialCompleteness: 'summary_only',
+      materials: {
+        reading:
+          'A monument may have been built for defense because it sits on high ground, has thick walls, and overlooks trade routes.',
+        lecture:
+          'The professor argues the site was ceremonial, noting poor storage space, decorative wall carvings, and limited military visibility in bad weather.',
+        template: 'Reading reason -> lecture challenge -> why the challenge matters.',
+      },
     },
     {
       id: 'pr-w-3',
@@ -576,6 +621,11 @@ export const practiceCards: Record<Section, PracticeCard[]> = {
       explanation: 'Integrated writing becomes easier when every body paragraph has a clear source pair: what the reading claims and how the lecture challenges it.',
       xp: 26,
       followUp: 'Check whether your paragraph has both source sides, not just a reading summary or lecture summary.',
+      responseMode: 'template_only',
+      sourceMaterialCompleteness: 'template_only',
+      materials: {
+        template: 'Reading claim 1 -> Lecture challenge 1; Reading claim 2 -> Lecture challenge 2; Reading claim 3 -> Lecture challenge 3.',
+      },
     },
   ],
 };

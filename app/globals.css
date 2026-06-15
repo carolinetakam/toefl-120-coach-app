@@ -500,6 +500,43 @@ p.copy, .muted {
   align-items: center;
 }
 
+.preferencesPanel {
+  gap: 10px;
+}
+
+.preferenceToggles {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+
+.preferenceToggle {
+  min-height: 38px;
+  border-radius: var(--radius-control);
+  padding: 0 12px;
+  background: var(--surface-soft);
+  color: var(--muted);
+  box-shadow: var(--shadow-inset);
+  font: 800 11px/1 var(--font-ui);
+  letter-spacing: 0.08em;
+  text-align: left;
+  text-transform: uppercase;
+  transition: transform 140ms ease, background 140ms ease, color 140ms ease;
+}
+
+.preferenceToggle.active {
+  background: var(--accent-wash);
+  color: var(--accent);
+  box-shadow: var(--shadow-control);
+}
+
+.preferenceHelp {
+  border-radius: var(--radius-control);
+  background: var(--surface-soft);
+  padding: 10px;
+  box-shadow: var(--shadow-inset);
+}
+
 .centerActions {
   justify-content: center;
 }

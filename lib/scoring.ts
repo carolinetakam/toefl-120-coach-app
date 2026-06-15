@@ -67,7 +67,18 @@ function sectionKeywords(card: PracticeCard) {
   return keywords.filter((keyword) => text.includes(keyword));
 }
 
+export function canCollectPracticeCardResponse(card: PracticeCard) {
+  return (card.responseMode ?? 'learner_answer') === 'learner_answer';
+}
+
+function assertCanCollectPracticeCardResponse(card: PracticeCard) {
+  if (!canCollectPracticeCardResponse(card)) {
+    throw new Error(`Cannot collect learner answer for ${card.id}; this card is ${card.responseMode} support material.`);
+  }
+}
+
 export function evaluateSpeakingAttempt(card: PracticeCard, selfRating: number, notes: string, hasAudio: boolean): SkillEvaluation {
+  assertCanCollectPracticeCardResponse(card);
   const words = countWords(notes);
   const sourceKeywords = sectionKeywords(card);
   const structure = hasAny(notes, [/\b(first|second|because|for example|overall|so)\b/i]) ? 1 : 0.35;
@@ -144,6 +155,7 @@ export function evaluateSpeakingAttempt(card: PracticeCard, selfRating: number, 
 }
 
 export function evaluateWritingAttempt(card: PracticeCard, draft: string, revision = ''): SkillEvaluation {
+  assertCanCollectPracticeCardResponse(card);
   const words = countWords(draft);
   const sentences = sentenceCount(draft);
   const combined = `${draft}\n${revision}`;

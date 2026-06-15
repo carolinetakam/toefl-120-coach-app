@@ -11,11 +11,11 @@ import { canPromoteLocalStateToCloud, LOCAL_SYNC_OWNER_KEY, localStateBelongsToA
 import { buildPersonalProofGate, getFirstUserLoopSteps, hasUserProgress } from '@/lib/first-user-loop';
 import { getDiagnosticQuestions, getNextDiagnosticFormId } from '@/lib/diagnostic';
 import { applyPracticeOutcome, buildErrorEntry, buildReviewCard, getLocalDateKey, nextInterval, prioritizePracticeCards, readinessScore, scoreDiagnostic, updateStreak, updateSubskillScores } from '@/lib/logic';
-import { evaluateMockAttempt, mockTests, MockQuestion, scoreMockAnswers } from '@/lib/mock-tests';
+import { canCollectIntegratedTaskAnswer, evaluateMockAttempt, mockTests, MockQuestion, scoreMockAnswers } from '@/lib/mock-tests';
 import { generateDailyPlan, summarizeDailyPlanTask } from '@/lib/planner';
 import { getSprintNextAction, type SprintNextAction } from '@/lib/repair-path';
 import { generateBlockerSummary, generateRecommendedDrills } from '@/lib/reporting';
-import { evaluateSpeakingAttempt, evaluateWritingAttempt, SkillEvaluation } from '@/lib/scoring';
+import { canCollectPracticeCardResponse, evaluateSpeakingAttempt, evaluateWritingAttempt, SkillEvaluation } from '@/lib/scoring';
 import { resolveMockSelection, resolvePracticeCardSelection } from '@/lib/selection-recovery';
 import { initialState, practiceCards, sectionLabels } from '@/lib/seed';
 import { getSprintMode, getTodaySprintDay, sectionPlaybooks, type SprintAction } from '@/lib/sprint';
@@ -63,6 +63,12 @@ type GuestSession = {
   expiresAt?: string;
 };
 
+type CoachPreferences = {
+  showTimers: boolean;
+  showExamples: boolean;
+  showTemplates: boolean;
+};
+
 const tabs: Array<{ key: TabKey; label: string }> = [
   { key: 'today', label: 'Today' },
   { key: 'path', label: 'Path' },
@@ -80,11 +86,18 @@ function isStrategyLayerCard(cardId: string) {
 }
 
 const speakingChecks = ['Clear main idea', 'Source detail included', 'Finished cleanly'];
+const writingStructureChecks = ['Clear position or source relationship', 'One developed reason/detail', 'Clean final sentence'];
 const diagnosticStartedAtKey = 'toefl-120-coach-diagnostic-started-at';
 const launchSmokeChecksKey = 'toefl-120-coach-launch-smoke-checks';
 const guestSessionKey = 'toefl-120-coach-guest-session';
+const coachPreferencesKey = 'toefl-120-coach-preferences';
 const speakingRecordingLimitSeconds = 60;
 const microphoneBlockedFallbackMessage = 'Microphone access is blocked. You can still practice using Self-Rating Mode, or enable microphone access to record your answer.';
+const defaultCoachPreferences: CoachPreferences = {
+  showTimers: true,
+  showExamples: true,
+  showTemplates: true,
+};
 
 const pathStatusLabels: Record<UnlockStatus, string> = {
   completed: '✓ Completed',
@@ -99,6 +112,21 @@ const pathStatusBadgeClass: Record<UnlockStatus, string> = {
   locked: 'chip',
   available_optional: 'pill-good',
 };
+
+function loadCoachPreferences(): CoachPreferences {
+  if (typeof window === 'undefined') return defaultCoachPreferences;
+
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(coachPreferencesKey) ?? 'null') as Partial<CoachPreferences> | null;
+    return {
+      showTimers: parsed?.showTimers ?? defaultCoachPreferences.showTimers,
+      showExamples: parsed?.showExamples ?? defaultCoachPreferences.showExamples,
+      showTemplates: parsed?.showTemplates ?? defaultCoachPreferences.showTemplates,
+    };
+  } catch {
+    return defaultCoachPreferences;
+  }
+}
 
 function pathStatusClass(status: UnlockStatus) {
   return `pathCard-${status.replace('_', '-')}`;
@@ -402,12 +430,16 @@ export function CoachApp() {
   const [mockSubmitted, setMockSubmitted] = useState(false);
   const [mockStartedAt, setMockStartedAt] = useState<number | null>(null);
   const [mockElapsedSnapshot, setMockElapsedSnapshot] = useState(0);
+  const [taskStartedAt, setTaskStartedAt] = useState<number | null>(null);
+  const [taskElapsedSnapshot, setTaskElapsedSnapshot] = useState(0);
+  const [taskStructureChecks, setTaskStructureChecks] = useState<Record<string, boolean>>({});
   const [showReadinessReportText, setShowReadinessReportText] = useState(false);
   const [showFinalTemplateSheet, setShowFinalTemplateSheet] = useState(false);
   const [showBackupText, setShowBackupText] = useState(false);
   const [showFullLibrary, setShowFullLibrary] = useState(false);
   const [backupImportText, setBackupImportText] = useState('');
   const [showMockTranscript, setShowMockTranscript] = useState(false);
+  const [preferences, setPreferences] = useState<CoachPreferences>(() => loadCoachPreferences());
   const [revealedReviewIds, setRevealedReviewIds] = useState<Record<string, boolean>>({});
   const [recording, setRecording] = useState(false);
   const [recorderState, setRecorderState] = useState<RecorderState>('idle');
@@ -464,6 +496,9 @@ export function CoachApp() {
     setMockSubmitted(false);
     setDiagnosticStartedAt(null);
     setRecordingStartedAt(null);
+    setTaskStartedAt(null);
+    setTaskElapsedSnapshot(0);
+    setTaskStructureChecks({});
     setTaskContext(null);
     setRecorderState('idle');
     setMicrophonePermissionState('unknown');
@@ -694,6 +729,16 @@ export function CoachApp() {
   const mockLimitSeconds = currentMock.minutes * 60;
   const mockTimeRemaining = Math.max(0, mockLimitSeconds - mockElapsed);
   const mockTimed = mockElapsed > 0;
+  const taskElapsed = taskStartedAt ? elapsedSeconds(taskStartedAt, clockNow) + taskElapsedSnapshot : taskElapsedSnapshot;
+  const taskLimitSeconds = currentCardMetadata.timingSeconds;
+  const taskTimeRemaining = Math.max(0, taskLimitSeconds - taskElapsed);
+  const showTaskTimerControls = preferences.showTimers || Boolean(taskStartedAt) || taskElapsed > 0;
+  const showMockTimerControls = preferences.showTimers || Boolean(mockStartedAt) || mockTimed;
+  const currentCardCanCollectResponse = canCollectPracticeCardResponse(currentCard);
+  const currentMockCanCollectSpeaking = canCollectIntegratedTaskAnswer(currentMock.speakingTask);
+  const currentMockCanCollectWriting = canCollectIntegratedTaskAnswer(currentMock.writingTask);
+  const speakingStructureCount = speakingChecks.filter((check) => mockRubric[check]).length;
+  const writingStructureCount = writingStructureChecks.filter((check) => mockRubric[check]).length;
   const activeTaskContext = taskContext && (taskContext.taskId === currentCard.id || taskContext.taskType === 'miniMock')
     ? taskContext
     : taskContextForCard(currentCard, sourcePageFromTab(tab));
@@ -797,6 +842,8 @@ export function CoachApp() {
     setAudioUrl(undefined);
     setLastSpeakingEvaluation(null);
     setLastWritingEvaluation(null);
+    setTaskStartedAt(null);
+    setTaskElapsedSnapshot(0);
   }, [currentCard, state.speakingAttempts, state.writingDrafts]);
 
   useEffect(() => {
@@ -806,6 +853,11 @@ export function CoachApp() {
       }
     };
   }, [audioUrl]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem(coachPreferencesKey, JSON.stringify(preferences));
+  }, [preferences]);
 
   const cleanupRecording = useCallback(() => {
     if (recorderRef.current?.state === 'recording') {
@@ -836,11 +888,11 @@ export function CoachApp() {
   }, [cleanupRecording, currentCard.id]);
 
   useEffect(() => {
-    const shouldRunClock = (state.onboarded && !state.diagnosticCompleted) || recording || Boolean(mockStartedAt);
+    const shouldRunClock = (state.onboarded && !state.diagnosticCompleted) || recording || Boolean(mockStartedAt) || Boolean(taskStartedAt);
     if (!shouldRunClock) return;
     const interval = window.setInterval(() => setClockNow(Date.now()), 1000);
     return () => window.clearInterval(interval);
-  }, [mockStartedAt, recording, state.diagnosticCompleted, state.onboarded]);
+  }, [mockStartedAt, recording, state.diagnosticCompleted, state.onboarded, taskStartedAt]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -871,6 +923,13 @@ export function CoachApp() {
     setMockElapsedSnapshot(mockLimitSeconds);
     setFeedback('Mini mock timer reached the target. Submit now, then repair only what the report shows.');
   }, [mockElapsed, mockLimitSeconds, mockStartedAt]);
+
+  useEffect(() => {
+    if (!taskStartedAt || taskElapsed < taskLimitSeconds) return;
+    setTaskStartedAt(null);
+    setTaskElapsedSnapshot(taskLimitSeconds);
+    setFeedback('Task timer reached the target. Finish the current sentence, then submit or revise.');
+  }, [taskElapsed, taskLimitSeconds, taskStartedAt]);
 
   function handleProfileUpdate<K extends keyof UserProfile>(key: K, value: UserProfile[K]) {
     setState((prev) => ({
@@ -1076,6 +1135,10 @@ export function CoachApp() {
   }
 
   function submitWriting(card: PracticeCard) {
+    if (!canCollectPracticeCardResponse(card)) {
+      setFeedback('This is support material only. Use the template, then open an answerable writing task to submit.');
+      return;
+    }
     if (!writingDraft.trim()) {
       setFeedback('Add a draft before saving the writing attempt.');
       return;
@@ -1265,6 +1328,35 @@ export function CoachApp() {
     setFeedback('Mini mock timer reset. Start it again when you are ready to work under pressure.');
   }
 
+  function startTaskTimer() {
+    if (taskStartedAt || !currentCardCanCollectResponse) return;
+    const now = Date.now();
+    setTaskStartedAt(now);
+    setClockNow(now);
+    setFeedback('Task timer started. Use the checklist before submitting.');
+  }
+
+  function pauseTaskTimer() {
+    if (!taskStartedAt) return;
+    setTaskElapsedSnapshot(taskElapsed);
+    setTaskStartedAt(null);
+    setFeedback('Task timer paused.');
+  }
+
+  function resetTaskTimer() {
+    setTaskStartedAt(null);
+    setTaskElapsedSnapshot(0);
+    setFeedback('Task timer reset.');
+  }
+
+  function setTaskStructureCheck(cardId: string, check: string, checked: boolean) {
+    setTaskStructureChecks((prev) => ({ ...prev, [`${cardId}:${check}`]: checked }));
+  }
+
+  function hasTaskStructureCheck(cardId: string, check: string) {
+    return Boolean(taskStructureChecks[`${cardId}:${check}`]);
+  }
+
   function requireSprintPracticeCard(action: Extract<SprintAction | SprintNextAction, { type: 'practice' }>) {
     const card = practiceCards[action.section].find((item) => item.id === action.cardId);
     if (!card) {
@@ -1404,6 +1496,15 @@ export function CoachApp() {
     taskPromptRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
 
+  function setPreference(key: keyof CoachPreferences, value: boolean) {
+    setPreferences((prev) => ({ ...prev, [key]: value }));
+  }
+
+  function openMicrophoneHelpFromSettings() {
+    setShowMicrophoneHelp((value) => !value);
+    setFeedback('Microphone help is available in Settings. Audio remains local unless you record evidence in a speaking task.');
+  }
+
   function startMockSpeakingEvidence() {
     const card = practiceCards.speaking.find((item) => item.id === 'pr-s-2') ?? practiceCards.speaking[0];
     selectPracticeCard(card, {
@@ -1426,7 +1527,11 @@ export function CoachApp() {
 
   function submitMockTest() {
     if (mockSubmitted || state.miniMockAttempts.find((attempt) => attempt.mockId === currentMock.id)?.submitted) return;
-    const evaluation = evaluateMockAttempt(currentMock, mockAnswers, Object.values(mockRubric).filter(Boolean).length, mockSpeakingNotes, mockWriting, hasSpeakingAudioEvidence);
+    if (!currentMockCanCollectSpeaking || !currentMockCanCollectWriting) {
+      setFeedback('This mini mock has support-only integrated material. Submit is disabled until approved answerable source material exists.');
+      return;
+    }
+    const evaluation = evaluateMockAttempt(currentMock, mockAnswers, speakingStructureCount, mockSpeakingNotes, mockWriting, hasSpeakingAudioEvidence);
     const now = new Date().toISOString();
     const finalMockElapsed = mockElapsed;
     const finalMockTimed = mockTimed;
@@ -1479,7 +1584,7 @@ export function CoachApp() {
           subskill: 'mini mock',
           score: evaluation.overall / 100,
           completedAt: now,
-          notes: `${evaluation.objectiveCorrect}/${evaluation.objectiveTotal} objective; speaking checklist ${Object.values(mockRubric).filter(Boolean).length}/3; speaking audio ${hasSpeakingAudioEvidence ? 'yes' : 'no'}; writing ${evaluation.writingWords} words; timer ${finalMockTimed ? formatElapsedSeconds(finalMockElapsed) : 'not used'}.`,
+          notes: `${evaluation.objectiveCorrect}/${evaluation.objectiveTotal} objective; speaking checklist ${speakingStructureCount}/3; writing checklist ${writingStructureCount}/3; speaking audio ${hasSpeakingAudioEvidence ? 'yes' : 'no'}; writing ${evaluation.writingWords} words; timer ${finalMockTimed ? formatElapsedSeconds(finalMockElapsed) : 'not used'}.`,
           supported: true,
         },
         ...state.practiceHistory,
@@ -1498,6 +1603,10 @@ export function CoachApp() {
   }
 
   function submitSpeaking(card: PracticeCard) {
+    if (!canCollectPracticeCardResponse(card)) {
+      setFeedback('This is support material only. Use the template, then open an answerable speaking task to submit.');
+      return;
+    }
     const now = new Date().toISOString();
     const evaluation = evaluateSpeakingAttempt(card, speakingRating, speakingNotes, Boolean(audioUrl));
     const score = evaluation.score;
@@ -1843,6 +1952,43 @@ export function CoachApp() {
             </div>
           )}
         </div>
+        <div className="sidebarPanel stack preferencesPanel" aria-label="Preferences">
+          <div className="row">
+            <span className="mini">Settings</span>
+            <button className="ghost compactButton" onClick={openMicrophoneHelpFromSettings}>
+              Mic help
+            </button>
+          </div>
+          {showMicrophoneHelp && (
+            <div className="preferenceHelp stack">
+              <p className="copy">Chrome/Edge: open the lock icon in the address bar, set Microphone to Allow, then reload.</p>
+              <p className="copy">Safari: open Website Settings or system Privacy settings, allow microphone access, then reload.</p>
+            </div>
+          )}
+          <div className="preferenceToggles">
+            <button
+              className={`preferenceToggle ${preferences.showTimers ? 'active' : ''}`}
+              aria-pressed={preferences.showTimers}
+              onClick={() => setPreference('showTimers', !preferences.showTimers)}
+            >
+              Timers
+            </button>
+            <button
+              className={`preferenceToggle ${preferences.showTemplates ? 'active' : ''}`}
+              aria-pressed={preferences.showTemplates}
+              onClick={() => setPreference('showTemplates', !preferences.showTemplates)}
+            >
+              Templates
+            </button>
+            <button
+              className={`preferenceToggle ${preferences.showExamples ? 'active' : ''}`}
+              aria-pressed={preferences.showExamples}
+              onClick={() => setPreference('showExamples', !preferences.showExamples)}
+            >
+              Examples
+            </button>
+          </div>
+        </div>
         <input
           ref={importInputRef}
           type="file"
@@ -2177,6 +2323,59 @@ export function CoachApp() {
                   </div>
                 ) : currentCard.section === 'writing' ? (
                   <div className="stack">
+                    {!currentCardCanCollectResponse ? (
+                      <div className="sectionCard stack">
+                        <div className="row">
+                          <span className="pill-warn">Support material</span>
+                          <span className="mini">{currentCard.sourceMaterialCompleteness ?? 'template_only'}</span>
+                        </div>
+                        <p className="copy">This card is a structure scaffold, not an answerable writing task. Use it to plan, then open an answerable writing drill when you are ready to submit.</p>
+                        {preferences.showTemplates && currentCard.materials?.template && (
+                          <div className="subPanel stack">
+                            <span className="mini">Template</span>
+                            <p>{currentCard.materials.template}</p>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <>
+                    {showTaskTimerControls && (
+                    <div className="sectionCard stack">
+                      <div className="row">
+                        <div>
+                          <span className="kicker">Task timer</span>
+                          <h3>{formatElapsedSeconds(taskElapsed)} elapsed</h3>
+                        </div>
+                        <span className={taskTimeRemaining === 0 ? 'pill-bad' : taskStartedAt ? 'pill-good' : 'chip'}>
+                          {taskStartedAt ? 'Running' : taskElapsed ? 'Paused' : 'Ready'}
+                        </span>
+                      </div>
+                      <div className="chips">
+                        <span className="chip">Target {formatElapsedSeconds(taskLimitSeconds)}</span>
+                        <span className="chip">{formatElapsedSeconds(taskTimeRemaining)} left</span>
+                        <button className="secondary compactButton" disabled={Boolean(taskStartedAt)} onClick={startTaskTimer}>Start</button>
+                        <button className="secondary compactButton" disabled={!taskStartedAt} onClick={pauseTaskTimer}>Pause</button>
+                        <button className="ghost compactButton" disabled={!taskElapsed && !taskStartedAt} onClick={resetTaskTimer}>Reset</button>
+                      </div>
+                    </div>
+                    )}
+                    <div className="sectionCard stack">
+                      <div className="row">
+                        <h3>Structure checklist</h3>
+                        <span className="chip">{writingStructureChecks.filter((check) => hasTaskStructureCheck(currentCard.id, check)).length}/{writingStructureChecks.length}</span>
+                      </div>
+                      {writingStructureChecks.map((check) => (
+                        <label key={check} className="row" style={{ justifyContent: 'flex-start' }}>
+                          <input
+                            type="checkbox"
+                            checked={hasTaskStructureCheck(currentCard.id, check)}
+                            onChange={(event) => setTaskStructureCheck(currentCard.id, check, event.target.checked)}
+                            style={{ width: 'auto' }}
+                          />
+                          <span>{check}</span>
+                        </label>
+                      ))}
+                    </div>
                     <div className="stack">
                       <label htmlFor="practice-writing-draft">Draft</label>
                       <textarea
@@ -2199,7 +2398,15 @@ export function CoachApp() {
                       />
                     </div>
                     <div className="chips"><span className="chip">{revisionWordCount} revision words</span><span className="chip">Draft only until submitted</span></div>
-                    <button className="cta" disabled={!writingDraft.trim()} onClick={() => submitWriting(currentCard)}>Submit writing attempt</button>
+                    <button
+                      className="cta"
+                      disabled={!writingDraft.trim() || writingStructureChecks.some((check) => !hasTaskStructureCheck(currentCard.id, check))}
+                      onClick={() => submitWriting(currentCard)}
+                    >
+                      Submit writing attempt
+                    </button>
+                      </>
+                    )}
                     {lastWritingEvaluation && (
                       <div className="sectionCard stack">
                         <div className="row">
@@ -2231,6 +2438,59 @@ export function CoachApp() {
                   </div>
                 ) : (
                   <div className="stack">
+                    {!currentCardCanCollectResponse ? (
+                      <div className="sectionCard stack">
+                        <div className="row">
+                          <span className="pill-warn">Support material</span>
+                          <span className="mini">{currentCard.sourceMaterialCompleteness ?? 'template_only'}</span>
+                        </div>
+                        <p className="copy">This card is a speaking scaffold, not a collectable answer task. Use the template with an earlier integrated prompt before recording a scored attempt.</p>
+                        {preferences.showTemplates && currentCard.materials?.template && (
+                          <div className="subPanel stack">
+                            <span className="mini">Template</span>
+                            <p>{currentCard.materials.template}</p>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <>
+                    {showTaskTimerControls && (
+                    <div className="sectionCard stack">
+                      <div className="row">
+                        <div>
+                          <span className="kicker">Task timer</span>
+                          <h3>{formatElapsedSeconds(taskElapsed)} elapsed</h3>
+                        </div>
+                        <span className={taskTimeRemaining === 0 ? 'pill-bad' : taskStartedAt ? 'pill-good' : 'chip'}>
+                          {taskStartedAt ? 'Running' : taskElapsed ? 'Paused' : 'Ready'}
+                        </span>
+                      </div>
+                      <div className="chips">
+                        <span className="chip">Target {formatElapsedSeconds(taskLimitSeconds)}</span>
+                        <span className="chip">{formatElapsedSeconds(taskTimeRemaining)} left</span>
+                        <button className="secondary compactButton" disabled={Boolean(taskStartedAt)} onClick={startTaskTimer}>Start</button>
+                        <button className="secondary compactButton" disabled={!taskStartedAt} onClick={pauseTaskTimer}>Pause</button>
+                        <button className="ghost compactButton" disabled={!taskElapsed && !taskStartedAt} onClick={resetTaskTimer}>Reset</button>
+                      </div>
+                    </div>
+                    )}
+                    <div className="sectionCard stack">
+                      <div className="row">
+                        <h3>Structure checklist</h3>
+                        <span className="chip">{speakingChecks.filter((check) => hasTaskStructureCheck(currentCard.id, check)).length}/{speakingChecks.length}</span>
+                      </div>
+                      {speakingChecks.map((check) => (
+                        <label key={check} className="row" style={{ justifyContent: 'flex-start' }}>
+                          <input
+                            type="checkbox"
+                            checked={hasTaskStructureCheck(currentCard.id, check)}
+                            onChange={(event) => setTaskStructureCheck(currentCard.id, check, event.target.checked)}
+                            style={{ width: 'auto' }}
+                          />
+                          <span>{check}</span>
+                        </label>
+                      ))}
+                    </div>
                     <div className="recorderPanel stack" aria-live="polite">
                       <div className="row">
                         <div>
@@ -2307,7 +2567,15 @@ export function CoachApp() {
                         placeholder="Example: intro too long, example was clear, pronunciation broke on two words..."
                       />
                     </div>
-                    <button className="cta" onClick={() => submitSpeaking(currentCard)}>Submit speaking attempt</button>
+                    <button
+                      className="cta"
+                      disabled={speakingChecks.some((check) => !hasTaskStructureCheck(currentCard.id, check))}
+                      onClick={() => submitSpeaking(currentCard)}
+                    >
+                      Submit speaking attempt
+                    </button>
+                      </>
+                    )}
                     {lastSpeakingEvaluation && (
                       <div className="sectionCard stack">
                         <div className="row">
@@ -2410,7 +2678,7 @@ export function CoachApp() {
                         </div>
                         <div className="stack">
                           <h3>Template</h3>
-                          {currentPlaybook.template.map((item, index) => <p className="copy" key={item}>{index + 1}. {item}</p>)}
+                          {preferences.showTemplates ? currentPlaybook.template.map((item, index) => <p className="copy" key={item}>{index + 1}. {item}</p>) : <p className="copy">Templates are hidden in Settings.</p>}
                         </div>
                       </div>
                       <div className="grid two">
@@ -2610,12 +2878,17 @@ export function CoachApp() {
                   </div>
                   <div className="chips">
                     <span className="chip">{currentMock.minutes} min target</span>
-                    <span className={mockTimed ? 'pill-good' : 'pill-warn'}>{mockTimed ? `Timed ${formatElapsedSeconds(mockElapsed)}` : 'Timer not started'}</span>
-                    <span className={mockTimeRemaining === 0 ? 'pill-bad' : 'chip'}>{formatElapsedSeconds(mockTimeRemaining)} left</span>
+                    {showMockTimerControls && (
+                      <>
+                        <span className={mockTimed ? 'pill-good' : 'pill-warn'}>{mockTimed ? `Timed ${formatElapsedSeconds(mockElapsed)}` : 'Timer not started'}</span>
+                        <span className={mockTimeRemaining === 0 ? 'pill-bad' : 'chip'}>{formatElapsedSeconds(mockTimeRemaining)} left</span>
+                      </>
+                    )}
                     <span className="chip">{mockScore.correct}/{mockScore.total} objective</span>
                     {currentMockMetadata && <span className="chip">Approved seed</span>}
                   </div>
                 </div>
+                {showMockTimerControls && (
                 <div className="sectionCard stack">
                   <div className="row">
                     <div>
@@ -2634,6 +2907,7 @@ export function CoachApp() {
                     <button className="ghost compactButton" disabled={mockSubmitted || (!mockTimed && !mockStartedAt)} onClick={resetMockTimer}>Reset timer</button>
                   </div>
                 </div>
+                )}
 		                {currentMiniMockAttempt?.submitted && (
 		                  <div className="sectionCard stack">
 		                    <div className="row">
@@ -2687,8 +2961,34 @@ export function CoachApp() {
                   </div>
 	                  <div className="sectionCard stack">
 	                    <h3>Speaking task</h3>
-	                    <p>{currentMock.speakingPrompt}</p>
-	                    <div className="chips"><span className="chip">Prep 30 sec</span><span className="chip">Speak 60 sec</span></div>
+	                    <p>{currentMock.speakingTask.prompt}</p>
+	                    <div className="chips">
+                        <span className={currentMockCanCollectSpeaking ? 'pill-good' : 'pill-warn'}>
+                          {currentMockCanCollectSpeaking ? 'Answerable' : 'Support only'}
+                        </span>
+                        <span className="chip">Prep 30 sec</span>
+                        <span className="chip">Speak {formatElapsedSeconds(currentMock.speakingTask.targetSeconds ?? 60)}</span>
+                      </div>
+                      {(currentMock.speakingTask.materials.listening || currentMock.speakingTask.materials.lecture || currentMock.speakingTask.materials.conversation) && (
+                        <div className="subPanel stack">
+                          <span className="mini">Source material</span>
+                          <p className="copy">
+                            {currentMock.speakingTask.materials.listening ?? currentMock.speakingTask.materials.lecture ?? currentMock.speakingTask.materials.conversation}
+                          </p>
+                        </div>
+                      )}
+                      {preferences.showTemplates && (currentMock.speakingTask.template || currentMock.speakingTask.materials.template) && (
+                        <div className="subPanel stack">
+                          <span className="mini">Structure template</span>
+                          <p>{currentMock.speakingTask.template ?? currentMock.speakingTask.materials.template}</p>
+                        </div>
+                      )}
+                      {preferences.showExamples && currentMock.speakingTask.materials.exampleResponse && (
+                        <details className="subPanel">
+                          <summary>Example after you try</summary>
+                          <p className="copy">{currentMock.speakingTask.materials.exampleResponse}</p>
+                        </details>
+                      )}
 	                    <div className="sectionCard stack">
 	                      <div className="row">
 	                        <span>Recorded speaking evidence</span>
@@ -2704,7 +3004,7 @@ export function CoachApp() {
 	                        </button>
 	                      )}
 	                    </div>
-	                    {speakingChecks.map((check) => (
+	                    {currentMockCanCollectSpeaking ? speakingChecks.map((check) => (
                       <label key={check} className="row" style={{ justifyContent: 'flex-start' }}>
                         <input
                           type="checkbox"
@@ -2714,10 +3014,15 @@ export function CoachApp() {
                         />
                         <span>{check}</span>
                       </label>
-                    ))}
+                    )) : <p className="copy">Answer collection is disabled until this task has complete approved source material.</p>}
                     <label className="stack">
                       <span>Playback reflection</span>
-                      <textarea value={mockSpeakingNotes} onChange={(event) => setMockSpeakingNotes(event.target.value)} placeholder="Record in Practice > Speaking, then summarize timing, pauses, and clarity here." />
+                      <textarea
+                        value={mockSpeakingNotes}
+                        onChange={(event) => setMockSpeakingNotes(event.target.value)}
+                        disabled={!currentMockCanCollectSpeaking}
+                        placeholder="Record in Practice > Speaking, then summarize timing, pauses, and clarity here."
+                      />
                     </label>
                   </div>
                 </div>
@@ -2763,14 +3068,75 @@ export function CoachApp() {
 
                 <div className="sectionCard stack">
                   <h3>Writing task</h3>
-                  <p>{currentMock.writingPrompt}</p>
-                  <textarea value={mockWriting} onChange={(event) => setMockWriting(event.target.value)} placeholder="Write your response here..." />
-                  <div className="chips"><span className="chip">{countWords(mockWriting)} words</span><span className="chip">Target 120-180</span></div>
+                  <p>{currentMock.writingTask.prompt}</p>
+                  <div className="chips">
+                    <span className={currentMockCanCollectWriting ? 'pill-good' : 'pill-warn'}>
+                      {currentMockCanCollectWriting ? 'Answerable' : 'Support only'}
+                    </span>
+                    <span className="chip">{countWords(mockWriting)} words</span>
+                    <span className="chip">
+                      Target {currentMock.writingTask.wordRange?.min ?? 120}-{currentMock.writingTask.wordRange?.max ?? 180}
+                    </span>
+                  </div>
+                  {currentMock.writingTask.materials.sourceSummary && (
+                    <div className="subPanel stack">
+                      <span className="mini">Source material</span>
+                      <p className="copy">{currentMock.writingTask.materials.sourceSummary}</p>
+                    </div>
+                  )}
+                  {preferences.showTemplates && (currentMock.writingTask.template || currentMock.writingTask.materials.template) && (
+                    <div className="subPanel stack">
+                      <span className="mini">Structure template</span>
+                      <p>{currentMock.writingTask.template ?? currentMock.writingTask.materials.template}</p>
+                    </div>
+                  )}
+                  {preferences.showExamples && currentMock.writingTask.materials.exampleResponse && (
+                    <details className="subPanel">
+                      <summary>Example after you draft</summary>
+                      <p className="copy">{currentMock.writingTask.materials.exampleResponse}</p>
+                    </details>
+                  )}
+                  {currentMockCanCollectWriting ? (
+                    <>
+                      <div className="sectionCard stack">
+                        <div className="row">
+                          <h3>Structure checklist</h3>
+                          <span className="chip">{writingStructureCount}/{writingStructureChecks.length}</span>
+                        </div>
+                        {writingStructureChecks.map((check) => (
+                          <label key={check} className="row" style={{ justifyContent: 'flex-start' }}>
+                            <input
+                              type="checkbox"
+                              checked={Boolean(mockRubric[check])}
+                              onChange={(event) => setMockRubric((prev) => ({ ...prev, [check]: event.target.checked }))}
+                              style={{ width: 'auto' }}
+                            />
+                            <span>{check}</span>
+                          </label>
+                        ))}
+                      </div>
+                      <textarea value={mockWriting} onChange={(event) => setMockWriting(event.target.value)} placeholder="Write your response here..." />
+                    </>
+                  ) : (
+                    <p className="copy">Answer collection is disabled until this task has complete approved source material.</p>
+                  )}
                 </div>
 
-	                <button className="cta" disabled={mockSubmitted || Object.keys(mockAnswers).length < currentMock.questions.length || !mockWriting.trim()} onClick={submitMockTest}>
-	                  {mockSubmitted ? 'Mini mock submitted' : 'Submit mini mock'}
-	                </button>
+		                <button
+                      className="cta"
+                      disabled={
+                        mockSubmitted ||
+                        !currentMockCanCollectSpeaking ||
+                        !currentMockCanCollectWriting ||
+                        Object.keys(mockAnswers).length < currentMock.questions.length ||
+                        speakingStructureCount < speakingChecks.length ||
+                        writingStructureCount < writingStructureChecks.length ||
+                        !mockWriting.trim()
+                      }
+                      onClick={submitMockTest}
+                    >
+		                  {mockSubmitted ? 'Mini mock submitted' : 'Submit mini mock'}
+		                </button>
               </div>
               ) : (
                 <div className="panel stack">

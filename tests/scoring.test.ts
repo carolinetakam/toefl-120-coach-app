@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { evaluateSpeakingAttempt, evaluateWritingAttempt } from '@/lib/scoring';
+import { canCollectPracticeCardResponse, evaluateSpeakingAttempt, evaluateWritingAttempt } from '@/lib/scoring';
 import { practiceCards } from '@/lib/seed';
 
 describe('skill scoring', () => {
@@ -59,5 +59,15 @@ describe('skill scoring', () => {
     expect(evaluation.band).toBe('developing');
     expect(evaluation.repairs.join(' ')).toMatch(/target range/i);
     expect(evaluation.proofChecks.find((check) => check.label === 'Target length')?.passed).toBe(false);
+  });
+
+  it('does not score template-only integrated support cards as learner answers', () => {
+    const speakingTemplate = practiceCards.speaking.find((card) => card.id === 'pr-s-7')!;
+    const writingTemplate = practiceCards.writing.find((card) => card.id === 'pr-w-7')!;
+
+    expect(canCollectPracticeCardResponse(speakingTemplate)).toBe(false);
+    expect(canCollectPracticeCardResponse(writingTemplate)).toBe(false);
+    expect(() => evaluateSpeakingAttempt(speakingTemplate, 4, 'I used the template.', true)).toThrow(/Cannot collect learner answer/i);
+    expect(() => evaluateWritingAttempt(writingTemplate, 'Reading claim one connects to lecture challenge one.', '')).toThrow(/Cannot collect learner answer/i);
   });
 });

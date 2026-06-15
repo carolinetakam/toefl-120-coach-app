@@ -1,6 +1,6 @@
 # Next Phase Handoff: Beta Clearance to Official Launch
 
-Last updated: 2026-06-15 15:34 KST
+Last updated: 2026-06-15 16:25 KST
 Project: TOEFL 120 Coach  
 Repo: `/Users/carolinetakam/Documents/apps/toefl-120-coach-app-only`  
 Production: `https://score120coach.com`
@@ -18,6 +18,8 @@ Addendum 2026-06-15 14:37 KST: blocked microphone fallback actions are implement
 Addendum 2026-06-15 15:19 KST: recording playback MIME handling is fixed locally in `docs/implementation-reports/2026-06-15-recording-playback-mime-fix.md` after a browser audio control showed `Error` following recording. Retest live recording/playback after deploy.
 
 Addendum 2026-06-15 15:34 KST: remaining P1 progress/completion UX is implemented locally in `docs/implementation-reports/2026-06-15-p1-progress-completion-ux.md`. P1 is complete locally after commit/push/deploy; production smoke blockers still govern beta clearance.
+
+Addendum 2026-06-15 16:25 KST: integrated speaking/writing materials, task timers, structure checklists, and local settings/preferences are implemented locally in `docs/implementation-reports/2026-06-15-integrated-materials-content-model.md`, `docs/implementation-reports/2026-06-15-timer-structure-tracker-ui.md`, and `docs/implementation-reports/2026-06-15-settings-preferences-ui.md`. These improve learner completion but do not change the beta-clearance gate; production signed-in sync, backup/reset/import, and support email checks remain required.
 
 ## Current launch decision
 

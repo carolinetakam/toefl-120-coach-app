@@ -2,6 +2,18 @@ export type Section = 'reading' | 'listening' | 'speaking' | 'writing';
 export type Track = 'Foundation' | 'High-score' | '120 precision' | 'Test-readiness';
 export type ContentSourceType = 'approved_seed' | 'manual_content' | 'approved_generated_variant';
 export type ContentDifficultyBand = 'A2' | 'B1' | 'B2' | 'C1';
+export type ContentResponseMode = 'learner_answer' | 'summary_only' | 'template_only';
+export type SourceMaterialCompleteness = 'complete' | 'summary_only' | 'template_only';
+
+export interface IntegratedTaskMaterials {
+  reading?: string;
+  listening?: string;
+  lecture?: string;
+  conversation?: string;
+  sourceSummary?: string;
+  template?: string;
+  exampleResponse?: string;
+}
 
 export interface ContentMetadata {
   contentId: string;
@@ -16,6 +28,8 @@ export interface ContentMetadata {
   repairRule: string;
   sourceType: ContentSourceType;
   reviewStatus: 'approved';
+  responseMode: ContentResponseMode;
+  sourceMaterialCompleteness?: SourceMaterialCompleteness;
 }
 
 export interface UserProfile {
@@ -47,6 +61,9 @@ export interface PracticeCard {
   explanation: string;
   xp: number;
   followUp?: string;
+  responseMode?: ContentResponseMode;
+  sourceMaterialCompleteness?: SourceMaterialCompleteness;
+  materials?: IntegratedTaskMaterials;
 }
 
 export interface ErrorEntry {

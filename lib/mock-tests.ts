@@ -1,4 +1,4 @@
-import { Section } from '@/lib/types';
+import { ContentResponseMode, IntegratedTaskMaterials, Section, SourceMaterialCompleteness } from '@/lib/types';
 import { evaluateSpeakingAttempt, evaluateWritingAttempt } from '@/lib/scoring';
 
 export interface MockQuestion {
@@ -18,7 +18,22 @@ export interface MockTest {
   listeningScript: string;
   speakingPrompt: string;
   writingPrompt: string;
+  speakingTask: IntegratedMockTask;
+  writingTask: IntegratedMockTask;
   questions: MockQuestion[];
+}
+
+export interface IntegratedMockTask {
+  section: Extract<Section, 'speaking' | 'writing'>;
+  taskType: 'integrated_speaking_lecture' | 'academic_discussion' | 'integrated_writing';
+  prompt: string;
+  responseMode: ContentResponseMode;
+  sourceMaterialCompleteness: SourceMaterialCompleteness;
+  materials: IntegratedTaskMaterials;
+  template?: string;
+  exampleResponse?: string;
+  targetSeconds?: number;
+  wordRange?: { min: number; max: number };
 }
 
 export interface MockAttemptEvaluation {
@@ -45,6 +60,40 @@ export const mockTests: MockTest[] = [
       'The professor describes ecological succession on abandoned farmland. Explain the process and include the reason the final plant community may differ from the original one. Prepare briefly, then speak for about 60 seconds.',
     writingPrompt:
       'Academic Discussion: Some universities are replacing large lecture courses with smaller discussion-based classes. Is this change worth the extra cost? Write 120-180 words with a clear position, one reason, and one concrete example.',
+    speakingTask: {
+      section: 'speaking',
+      taskType: 'integrated_speaking_lecture',
+      prompt:
+        'The professor describes ecological succession on abandoned farmland. Explain the process and include the reason the final plant community may differ from the original one. Prepare briefly, then speak for about 60 seconds.',
+      responseMode: 'learner_answer',
+      sourceMaterialCompleteness: 'complete',
+      materials: {
+        listening:
+          'In today’s lecture, the professor explains ecological succession on abandoned farmland. First, fast-growing grasses appear because they tolerate exposed soil and direct sunlight. Later, shrubs and young trees create shade, changing the conditions for new species. The professor emphasizes that succession is not a simple return to the past. Human activity, seed availability, and soil chemistry can all change the final plant community.',
+        template: 'Main process -> stage one -> later change -> why the final community can differ.',
+        exampleResponse:
+          'The professor says succession happens in stages: grasses appear first, then shrubs and young trees change the conditions. The final community may differ because seeds, soil chemistry, and human activity affect what can grow.',
+      },
+      template: 'Main process -> stage one -> later change -> why the final community can differ.',
+      targetSeconds: 60,
+    },
+    writingTask: {
+      section: 'writing',
+      taskType: 'academic_discussion',
+      prompt:
+        'Academic Discussion: Some universities are replacing large lecture courses with smaller discussion-based classes. Is this change worth the extra cost? Write 120-180 words with a clear position, one reason, and one concrete example.',
+      responseMode: 'learner_answer',
+      sourceMaterialCompleteness: 'complete',
+      materials: {
+        sourceSummary:
+          'Class discussion prompt only: learners should contribute their own position about replacing large lectures with smaller discussion-based classes.',
+        template: 'Position -> one reason -> concrete example -> result.',
+        exampleResponse:
+          'I think the change is worth the cost when classes require discussion, because smaller groups make participation easier and help students fix misunderstandings faster.',
+      },
+      template: 'Position -> one reason -> concrete example -> result.',
+      wordRange: { min: 120, max: 180 },
+    },
     questions: [
       {
         id: 'mock-r-1',
@@ -116,6 +165,40 @@ export const mockTests: MockTest[] = [
       'The professor explains how river sediment helps researchers understand past environments. Summarize the method and explain why one sediment layer is not enough evidence. Prepare briefly, then speak for about 60 seconds.',
     writingPrompt:
       'Academic Discussion: Some history departments want students to work with local archives instead of only reading textbooks. Is archive work worth the extra time? Write 120-180 words with a clear position, one reason, and one concrete example.',
+    speakingTask: {
+      section: 'speaking',
+      taskType: 'integrated_speaking_lecture',
+      prompt:
+        'The professor explains how river sediment helps researchers understand past environments. Summarize the method and explain why one sediment layer is not enough evidence. Prepare briefly, then speak for about 60 seconds.',
+      responseMode: 'learner_answer',
+      sourceMaterialCompleteness: 'complete',
+      materials: {
+        listening:
+          'In this lecture, the professor explains how river sediment can preserve environmental history. Larger sand layers often show periods of fast water flow, while fine silt can indicate calmer conditions. The professor warns that one layer is not enough evidence by itself. Researchers compare several samples, nearby rainfall records, and plant remains before they make a claim about past floods.',
+        template: 'Method -> evidence type -> why one layer is not enough -> comparison sources.',
+        exampleResponse:
+          'The professor explains that sediment layers preserve clues about past water flow. Sand can show fast flow and silt can show calmer periods, but one layer is not enough because researchers need to compare samples, rainfall records, and plant remains.',
+      },
+      template: 'Method -> evidence type -> why one layer is not enough -> comparison sources.',
+      targetSeconds: 60,
+    },
+    writingTask: {
+      section: 'writing',
+      taskType: 'academic_discussion',
+      prompt:
+        'Academic Discussion: Some history departments want students to work with local archives instead of only reading textbooks. Is archive work worth the extra time? Write 120-180 words with a clear position, one reason, and one concrete example.',
+      responseMode: 'learner_answer',
+      sourceMaterialCompleteness: 'complete',
+      materials: {
+        sourceSummary:
+          'Class discussion prompt only: learners should argue whether local archive work is worth the extra time compared with textbook-only study.',
+        template: 'Position -> learning value or cost -> concrete course example -> result.',
+        exampleResponse:
+          'Archive work is worth the time when students need evidence skills, because they learn how historical claims are built from primary records instead of only memorizing textbook conclusions.',
+      },
+      template: 'Position -> learning value or cost -> concrete course example -> result.',
+      wordRange: { min: 120, max: 180 },
+    },
     questions: [
       {
         id: 'mock2-r-1',
@@ -182,6 +265,40 @@ export const mockTests: MockTest[] = [
       'The advisor explains a new lab equipment reservation policy. Summarize the student concern and the advisor recommendation in about 60 seconds.',
     writingPrompt:
       'Academic Discussion: Should universities require students to book study rooms in advance, or should rooms stay first-come, first-served? Write 120-180 words with your opinion and one specific example.',
+    speakingTask: {
+      section: 'speaking',
+      taskType: 'integrated_speaking_lecture',
+      prompt:
+        'The advisor explains a new lab equipment reservation policy. Summarize the student concern and the advisor recommendation in about 60 seconds.',
+      responseMode: 'learner_answer',
+      sourceMaterialCompleteness: 'complete',
+      materials: {
+        conversation:
+          'A student visits an advisor because a new lab policy requires students to reserve equipment online. The student worries that the system will make last-minute projects harder. The advisor explains that reservations prevent conflicts and that emergency slots will remain available. She recommends that the student reserve early for planned work and use emergency slots only when experiments fail unexpectedly.',
+        template: 'Policy -> student concern -> advisor reason -> recommendation.',
+        exampleResponse:
+          'The new policy requires online equipment reservations. The student worries about last-minute projects, but the advisor says reservations prevent conflicts and emergency slots will still exist, so the student should reserve early and use emergency slots only for unexpected failures.',
+      },
+      template: 'Policy -> student concern -> advisor reason -> recommendation.',
+      targetSeconds: 60,
+    },
+    writingTask: {
+      section: 'writing',
+      taskType: 'academic_discussion',
+      prompt:
+        'Academic Discussion: Should universities require students to book study rooms in advance, or should rooms stay first-come, first-served? Write 120-180 words with your opinion and one specific example.',
+      responseMode: 'learner_answer',
+      sourceMaterialCompleteness: 'complete',
+      materials: {
+        sourceSummary:
+          'Class discussion prompt only: learners should choose advance booking or first-come study rooms and support the position with one example.',
+        template: 'Position -> reason -> campus example -> consequence.',
+        exampleResponse:
+          'Universities should require booking for group rooms because project teams need predictable space. For example, a lab group preparing a presentation can reserve a room and avoid wasting meeting time searching for seats.',
+      },
+      template: 'Position -> reason -> campus example -> consequence.',
+      wordRange: { min: 120, max: 180 },
+    },
     questions: [
       {
         id: 'mock3-r-1',
@@ -253,6 +370,40 @@ export const mockTests: MockTest[] = [
       'The professor explains two ways urban trees can cool city streets. Summarize the two mechanisms and include the example from the lecture in about 60 seconds.',
     writingPrompt:
       'Academic Discussion: Some cities want to spend more money planting trees on streets instead of building more parking spaces. Which should the city prioritize? Write 120-180 words with one clear reason and one example.',
+    speakingTask: {
+      section: 'speaking',
+      taskType: 'integrated_speaking_lecture',
+      prompt:
+        'The professor explains two ways urban trees can cool city streets. Summarize the two mechanisms and include the example from the lecture in about 60 seconds.',
+      responseMode: 'learner_answer',
+      sourceMaterialCompleteness: 'complete',
+      materials: {
+        listening:
+          'The professor discusses how urban trees affect city temperatures. Trees provide shade, but they also cool air when water evaporates from leaves. The professor gives an example from two nearby streets: the street with older trees stayed cooler during the afternoon. However, she notes that tree type, water access, and building height can change the size of the effect.',
+        template: 'Main idea -> mechanism one -> mechanism two -> street example -> limits.',
+        exampleResponse:
+          'The professor says trees cool streets in two ways: they create shade and release water vapor from leaves. In the example, the street with older trees stayed cooler in the afternoon, though the effect can change depending on tree type, water, and building height.',
+      },
+      template: 'Main idea -> mechanism one -> mechanism two -> street example -> limits.',
+      targetSeconds: 60,
+    },
+    writingTask: {
+      section: 'writing',
+      taskType: 'academic_discussion',
+      prompt:
+        'Academic Discussion: Some cities want to spend more money planting trees on streets instead of building more parking spaces. Which should the city prioritize? Write 120-180 words with one clear reason and one example.',
+      responseMode: 'learner_answer',
+      sourceMaterialCompleteness: 'complete',
+      materials: {
+        sourceSummary:
+          'Class discussion prompt only: learners should argue whether cities should prioritize street trees or parking spaces.',
+        template: 'Priority -> reason -> city example -> public benefit.',
+        exampleResponse:
+          'Cities should prioritize trees because cooler streets help more residents every day. For example, shaded bus stops and sidewalks make summer travel safer for students and older people.',
+      },
+      template: 'Priority -> reason -> city example -> public benefit.',
+      wordRange: { min: 120, max: 180 },
+    },
     questions: [
       {
         id: 'mock4-r-1',
@@ -335,7 +486,29 @@ export function countWords(value: string) {
   return value.trim().split(/\s+/).filter(Boolean).length;
 }
 
+export function canCollectIntegratedTaskAnswer(task: IntegratedMockTask) {
+  if (task.responseMode !== 'learner_answer') return false;
+  if (!task.prompt.trim()) return false;
+
+  if (task.taskType === 'academic_discussion') {
+    return Boolean(task.wordRange?.min && task.wordRange.max);
+  }
+
+  if (task.taskType === 'integrated_speaking_lecture') {
+    return Boolean(task.targetSeconds && (task.materials.listening?.trim() || task.materials.lecture?.trim() || task.materials.conversation?.trim()));
+  }
+
+  return Boolean(task.materials.reading?.trim() && (task.materials.listening?.trim() || task.materials.lecture?.trim()));
+}
+
+function assertCanCollectIntegratedTaskAnswer(task: IntegratedMockTask) {
+  if (!canCollectIntegratedTaskAnswer(task)) {
+    throw new Error(`Cannot collect learner answer for incomplete ${task.taskType} task. Add approved source materials or mark it summary-only.`);
+  }
+}
+
 export function estimateMockWritingScore(test: MockTest, writing: string) {
+  assertCanCollectIntegratedTaskAnswer(test.writingTask);
   return evaluateWritingAttempt(
     {
       id: `${test.id}-writing`,
@@ -352,6 +525,7 @@ export function estimateMockWritingScore(test: MockTest, writing: string) {
 }
 
 export function estimateMockSpeakingScore(test: MockTest, checks: number, notes: string, hasAudioEvidence = false) {
+  assertCanCollectIntegratedTaskAnswer(test.speakingTask);
   const checklistSignal = checks >= 3 ? ' clear main idea source detail complete final sentence' : checks >= 2 ? ' clear main idea source detail' : '';
   return evaluateSpeakingAttempt(
     {

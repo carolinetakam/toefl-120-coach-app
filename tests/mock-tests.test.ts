@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { evaluateMockAttempt, estimateMockSpeakingScore, estimateMockWritingScore, mockTests, scoreMockAnswers, scoreMockAnswersBySection } from '@/lib/mock-tests';
+import {
+  canCollectIntegratedTaskAnswer,
+  evaluateMockAttempt,
+  estimateMockSpeakingScore,
+  estimateMockWritingScore,
+  mockTests,
+  scoreMockAnswers,
+  scoreMockAnswersBySection,
+} from '@/lib/mock-tests';
 
 describe('scoreMockAnswers', () => {
   it('scores linked mock objective questions deterministically', () => {
@@ -47,6 +55,27 @@ describe('scoreMockAnswers', () => {
 
     expect(estimateMockSpeakingScore(first, 3, first.speakingPrompt, true)).toBeGreaterThan(estimateMockSpeakingScore(final, 0, '', false));
     expect(estimateMockWritingScore(final, 'I think cities should prioritize trees because they reduce heat for people walking outside. For example, a bus stop with shade can be more comfortable in summer, so more residents can wait safely. This practical benefit is more important than adding a few parking spaces.')).toBeGreaterThan(0.5);
+  });
+
+  it('requires integrated mock tasks to have approved materials before collecting learner answers', () => {
+    for (const mock of mockTests) {
+      expect(canCollectIntegratedTaskAnswer(mock.speakingTask)).toBe(true);
+      expect(canCollectIntegratedTaskAnswer(mock.writingTask)).toBe(true);
+      expect(mock.speakingTask.materials.template?.length).toBeGreaterThan(20);
+      expect(mock.writingTask.wordRange).toEqual({ min: 120, max: 180 });
+    }
+
+    const incomplete = {
+      ...mockTests[0],
+      speakingTask: {
+        ...mockTests[0].speakingTask,
+        responseMode: 'learner_answer' as const,
+        materials: {},
+      },
+    };
+
+    expect(canCollectIntegratedTaskAnswer(incomplete.speakingTask)).toBe(false);
+    expect(() => estimateMockSpeakingScore(incomplete, 3, 'source detail and complete final sentence', true)).toThrow(/incomplete/i);
   });
 
   it('scores reading and listening objective sections separately', () => {

@@ -20,6 +20,7 @@ describe('content metadata registry', () => {
       expect(metadata.cue.length).toBeGreaterThan(12);
       expect(metadata.repairRule.length).toBeGreaterThan(12);
       expect(metadata.traps.length).toBeGreaterThan(0);
+      expect(metadata.responseMode).toBe(card.responseMode ?? 'learner_answer');
     }
   });
 
@@ -46,7 +47,24 @@ describe('content metadata registry', () => {
       expect(metadata?.taskType).toBe('mini_mockup');
       expect(metadata?.reviewStatus).toBe('approved');
       expect(metadata?.timingSeconds).toBe(test.minutes * 60);
+      expect(metadata?.responseMode).toBe('learner_answer');
+      expect(metadata?.sourceMaterialCompleteness).toBe('complete');
     }
+  });
+
+  it('labels summary-only and template-only support content in the model layer', () => {
+    const summaryCard = practiceCards.speaking.find((card) => card.id === 'pr-s-4');
+    const templateCard = practiceCards.speaking.find((card) => card.id === 'pr-s-7');
+    const summaryQuestion = mockTests.flatMap((test) => test.questions).find((question) => question.subskill === 'summary');
+
+    expect(summaryCard?.sourceMaterialCompleteness).toBe('summary_only');
+    expect(summaryCard?.materials?.lecture).toMatch(/professor explains/i);
+    expect(templateCard?.responseMode).toBe('template_only');
+    expect(templateCard?.sourceMaterialCompleteness).toBe('template_only');
+
+    expect(summaryQuestion).toBeDefined();
+    expect(getMockQuestionMetadata(summaryQuestion!).taskType).toBe('summary_only_reading_question');
+    expect(getMockQuestionMetadata(summaryQuestion!).sourceMaterialCompleteness).toBe('summary_only');
   });
 
   it('fails loudly when practice content is missing approved metadata instead of using a fallback', () => {
