@@ -23,7 +23,7 @@ describe('model answer workflow UI contract', () => {
     expect(coachAppSource).toContain('mockSubmitted && (');
     expect(coachAppSource.match(/<AnswerComparisonCard/g)?.length ?? 0).toBeGreaterThanOrEqual(4);
     expect(comparisonSource).toContain('Your Answer');
-    expect(comparisonSource).toContain('Model Answer');
+    expect(comparisonSource).toContain('Sample Answer');
     expect(comparisonSource).toContain('Comparison checklist');
   });
 

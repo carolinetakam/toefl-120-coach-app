@@ -21,7 +21,7 @@ export function AnswerComparisonCard({ learnerAnswer, modelAnswer, checklist, ch
           <p className="comparisonText">{learnerAnswer.trim() || 'No written reflection saved for this task.'}</p>
         </div>
         <div className="stack">
-          <span className="mini">Model Answer</span>
+          <span className="mini">Sample Answer</span>
           <p className="comparisonText">{modelAnswer?.response ?? 'Model answer coming soon.'}</p>
         </div>
       </div>

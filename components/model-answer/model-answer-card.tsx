@@ -9,7 +9,7 @@ export function ModelAnswerCard({ modelAnswer }: ModelAnswerCardProps) {
     return (
       <div className="modelAnswerCard stack">
         <div className="row">
-          <h3>Model Answer</h3>
+          <h3>Sample Answer</h3>
           <span className="pill-warn">Content gap</span>
         </div>
         <p className="copy">Model answer coming soon.</p>
@@ -20,8 +20,11 @@ export function ModelAnswerCard({ modelAnswer }: ModelAnswerCardProps) {
   return (
     <div className="modelAnswerCard stack">
       <div className="row">
-        <h3>Model Answer</h3>
-        <span className="pill-good">{modelAnswer.scoreBand}</span>
+        <h3>Sample Answer</h3>
+        <div className="chips">
+          <span className="chip">Model answer</span>
+          <span className="pill-good">{modelAnswer.scoreBand}</span>
+        </div>
       </div>
       <p>{modelAnswer.response}</p>
       <div className="grid two">
