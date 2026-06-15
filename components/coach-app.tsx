@@ -394,6 +394,35 @@ function createGuestSession(): GuestSession {
   };
 }
 
+function assertRenderableAppState(candidate: AppState) {
+  const plan = generateDailyPlan(candidate);
+  const section = plan[0]?.section ?? 'reading';
+  const cards = prioritizePracticeCards(candidate, section);
+  const card = cards[0] ?? practiceCards[section][0];
+  if (!card) throw new Error(`No renderable practice card for ${section}.`);
+
+  getDiagnosticQuestions(candidate.diagnosticFormId);
+  buildCoachingProfile(candidate);
+  buildPersonalProofGate(candidate);
+  buildPathDayViews(candidate);
+  getMissingRequiredActions(candidate);
+  getTodayMission(candidate);
+  canAccessMock(candidate);
+  canAccessFullLibrary(candidate);
+  getSprintNextAction(candidate);
+  getTodaySprintDay(candidate);
+  getSprintMode(candidate);
+  generateTestReadinessReport(candidate);
+  generateTestDayPlan(candidate);
+  buildTestWeekCommand(candidate);
+  formatLearnerReadinessReport(candidate);
+  readinessScore(candidate);
+  generateBlockerSummary(candidate.sectionScores, candidate.errorLog);
+  generateRecommendedDrills(cards, candidate.sectionScores, candidate.subskillScores, 1);
+  getPracticeCardMetadata(card);
+  toPersistableState(candidate);
+}
+
 function loadLaunchSmokeChecks(): LaunchSmokeChecks {
   if (typeof window === 'undefined') return defaultLaunchSmokeChecks;
   try {
@@ -642,8 +671,9 @@ export function CoachApp() {
       let remoteState: AppState | null = null;
       try {
         remoteState = convexState ? sanitizeAppState(convexState.state) : null;
+        if (remoteState) assertRenderableAppState(remoteState);
       } catch (error) {
-        console.log('CLOUD_RESTORE_SANITIZE_FAILED', error);
+        console.log('CLOUD_RESTORE_RENDER_CHECK_FAILED', error);
         setSyncRestoreError('Cloud progress could not be restored in this browser session. You can keep practicing locally while sync is offline.');
         setFeedback('Cloud progress could not be restored. Local practice is still available.');
         setSaveStatus('Offline');

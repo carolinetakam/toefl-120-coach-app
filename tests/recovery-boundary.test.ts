@@ -27,4 +27,11 @@ describe('root app recovery boundary', () => {
     expect(coachAppSource).toContain("setFeedback('Signed in. Restoring cloud progress now.')");
     expect(coachAppSource).toContain("authState.status === 'authenticated' && (");
   });
+
+  it('checks restored cloud state before replacing the renderable workspace', () => {
+    expect(coachAppSource).toContain('function assertRenderableAppState');
+    expect(coachAppSource).toContain('if (remoteState) assertRenderableAppState(remoteState);');
+    expect(coachAppSource).toContain('CLOUD_RESTORE_RENDER_CHECK_FAILED');
+    expect(coachAppSource).toContain("setSaveStatus('Offline')");
+  });
 });
