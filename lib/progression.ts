@@ -174,16 +174,32 @@ export function getNextLockedReason(state: AppState, day: number) {
 
 export function getTodayMission(state: AppState): TodayMission {
   const days = buildPathDayViews(state);
-  const current = days.find((day) => day.status === 'current');
+  const current = days.find((day) => day.status === 'current') ?? days.at(-1);
   if (!current) {
-    throw new Error('Progression path has no current mission.');
+    return {
+      day: 1,
+      title: 'Start TOEFL path',
+      focusLabel: 'Diagnostic',
+      minutes: state.profile.dailyMinutes,
+      why: 'Set your profile and finish the diagnostic to open the first mission.',
+      primaryActionLabel: 'Continue diagnostic',
+      checklist: [{ label: 'Finish strategy diagnostic', done: false }],
+      coachNote: 'The diagnostic keeps the plan honest before practice opens up.',
+    };
   }
   const tomorrow = days.find((day) => day.day === current.day + 1);
   const action = current.actions[0];
   const focusLabel = current.sectionFocus.map((section) => section[0].toUpperCase() + section.slice(1)).join(' + ');
+  const pathComplete = state.diagnosticCompleted && days.length > 0 && days.every((day) => day.status === 'completed');
 
   const checklist = !state.diagnosticCompleted
     ? [{ label: 'Finish strategy diagnostic', done: false }]
+    : pathComplete
+      ? [
+          { label: 'Diagnostic baseline saved', done: true },
+          { label: 'All required path missions submitted', done: true },
+          { label: 'Keep one review or repair signal visible', done: state.reviewQueue.length > 0 || state.errorLog.length > 0 || completedMiniMocks(state) > 0 },
+        ]
     : [
         { label: 'Diagnostic baseline saved', done: state.diagnosticCompleted },
         ...current.actions.map((action) => ({ label: `Submit: ${action.label}`, done: hasActionEvidence(state, action) })),
@@ -192,16 +208,18 @@ export function getTodayMission(state: AppState): TodayMission {
 
   return {
     day: current.day,
-    title: current.title,
+    title: pathComplete ? 'Path complete: final review' : current.title,
     focusLabel,
     minutes: current.minutes,
     why: current.outcome,
-    primaryActionLabel: state.diagnosticCompleted ? `Start: ${action?.label ?? current.title}` : 'Continue diagnostic',
+    primaryActionLabel: pathComplete ? 'Review saved misses' : state.diagnosticCompleted ? `Start: ${action?.label ?? current.title}` : 'Continue diagnostic',
     checklist,
     tomorrow,
-    coachNote: state.diagnosticCompleted
+    coachNote: pathComplete
+      ? 'All current path missions are complete. Keep review light, export a backup, and avoid heavy new work unless a fresh miss appears.'
+      : state.diagnosticCompleted
       ? 'Do the current mission first. Extra content stays secondary until the next proof point is saved.'
       : 'The diagnostic keeps the plan honest before practice opens up.',
-    action,
+    action: pathComplete ? undefined : action,
   };
 }

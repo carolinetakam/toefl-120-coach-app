@@ -140,6 +140,71 @@ describe('progression helpers', () => {
     expect(days[2].status).toBe('current');
   });
 
+  it('keeps a fully completed path renderable after signed-in restore', () => {
+    const completedPath = stateWith({
+      onboarded: true,
+      diagnosticCompleted: true,
+      practiceHistory: [
+        practiceResult('pr-s-2-proof', 'speaking'),
+        practiceResult('pr-w-4-proof', 'writing'),
+        practiceResult('pr-r-1-proof', 'reading'),
+        practiceResult('pr-l-5-proof', 'listening'),
+        practiceResult('pr-s-4-proof', 'speaking'),
+        practiceResult('pr-s-2-second-proof', 'speaking'),
+        practiceResult('pr-w-3-proof', 'writing'),
+      ],
+      miniMockAttempts: [
+        {
+          mockId: 'mock-campus-policy-3',
+          answers: {},
+          notes: '',
+          speakingNotes: '',
+          writing: '',
+          rubric: {},
+          submitted: true,
+          submittedAt: '2026-06-04T00:00:00.000Z',
+          score: 0.8,
+          elapsedSeconds: 1000,
+          timed: true,
+          updatedAt: '2026-06-04T00:00:00.000Z',
+        },
+        {
+          mockId: 'mock-final-confidence-4',
+          answers: {},
+          notes: '',
+          speakingNotes: '',
+          writing: '',
+          rubric: {},
+          submitted: true,
+          submittedAt: '2026-06-05T00:00:00.000Z',
+          score: 0.85,
+          elapsedSeconds: 900,
+          timed: true,
+          updatedAt: '2026-06-05T00:00:00.000Z',
+        },
+      ],
+      reviewQueue: [
+        {
+          id: 'review-1',
+          section: 'writing',
+          subskill: 'structure',
+          prompt: 'Review the final template.',
+          answer: 'Keep the template concise.',
+          dueDate: '2026-06-05T00:00:00.000Z',
+          interval: 1,
+        },
+      ],
+    });
+
+    const days = buildPathDayViews(completedPath);
+    const mission = getTodayMission(completedPath);
+
+    expect(days.every((day) => day.status === 'completed')).toBe(true);
+    expect(mission.title).toBe('Path complete: final review');
+    expect(mission.primaryActionLabel).toBe('Review saved misses');
+    expect(mission.action).toBeUndefined();
+  });
+
   it('keeps mini mock locked before minimum proof', () => {
     const state = stateWith({ onboarded: true, diagnosticCompleted: true });
 
