@@ -129,6 +129,24 @@ function taskContextForMock(mockId: string, title: string, prompt: string, sourc
   };
 }
 
+function selectRecorderMimeType() {
+  if (typeof MediaRecorder === 'undefined') return undefined;
+  const playableAudio = typeof document !== 'undefined' ? document.createElement('audio') : null;
+  const candidates = [
+    'audio/webm;codecs=opus',
+    'audio/webm',
+    'audio/mp4',
+    'audio/mp4;codecs=mp4a.40.2',
+    'audio/mpeg',
+  ];
+
+  return candidates.find((mimeType) => {
+    const canRecord = MediaRecorder.isTypeSupported(mimeType);
+    const canPlay = !playableAudio || playableAudio.canPlayType(mimeType).length > 0;
+    return canRecord && canPlay;
+  });
+}
+
 function formatPercent(value: number) {
   return `${Math.round(value * 100)}%`;
 }
@@ -1119,16 +1137,31 @@ export function CoachApp() {
       }
 
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const recorder = new MediaRecorder(stream);
+      const selectedMimeType = selectRecorderMimeType();
+      const recorder = selectedMimeType ? new MediaRecorder(stream, { mimeType: selectedMimeType }) : new MediaRecorder(stream);
       if (audioUrl?.startsWith('blob:')) {
         URL.revokeObjectURL(audioUrl);
       }
       setAudioUrl(undefined);
       streamRef.current = stream;
       chunksRef.current = [];
-      recorder.ondataavailable = (event) => chunksRef.current.push(event.data);
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) chunksRef.current.push(event.data);
+      };
       recorder.onstop = () => {
-        const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
+        const blobType = recorder.mimeType || selectedMimeType || chunksRef.current[0]?.type || 'audio/webm';
+        const blob = new Blob(chunksRef.current, { type: blobType });
+        if (blob.size === 0) {
+          setRecorderState('error');
+          setMicrophoneMessage('No playable audio was captured. Try recording again, or continue with Self-Rating Mode.');
+          setFeedback('No playable audio was captured. Try recording again, or continue with Self-Rating Mode.');
+          stream.getTracks().forEach((track) => track.stop());
+          streamRef.current = null;
+          recorderRef.current = null;
+          setRecordingStartedAt(null);
+          setRecording(false);
+          return;
+        }
         const url = URL.createObjectURL(blob);
         setAudioUrl(url);
         stream.getTracks().forEach((track) => track.stop());
