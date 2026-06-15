@@ -320,6 +320,11 @@ p.copy, .muted {
   margin-top: 6px;
 }
 
+.coachingSnapshot .stat strong {
+  overflow-wrap: anywhere;
+  text-transform: capitalize;
+}
+
 .row {
   display: flex;
   align-items: center;
@@ -729,6 +734,33 @@ select:focus-visible {
   box-shadow: var(--shadow-card);
   text-align: left;
   color: var(--text);
+}
+
+.coachingCard {
+  align-content: start;
+  min-height: 220px;
+}
+
+.coachingTrendTrack {
+  min-height: 96px;
+  display: flex;
+  align-items: end;
+  gap: 8px;
+  padding: 12px;
+  border-radius: var(--radius-control);
+  background: var(--surface-soft);
+  box-shadow: var(--shadow-inset);
+}
+
+.coachingTrendPoint {
+  flex: 1;
+  min-width: 12px;
+  max-width: 42px;
+  border-radius: var(--radius-pill) var(--radius-pill) 8px 8px;
+  background: linear-gradient(180deg, var(--accent), var(--accent-2));
+  box-shadow:
+    3px 4px 8px color-mix(in srgb, var(--accent), transparent 82%),
+    inset 1px 1px 0 rgba(255, 255, 255, 0.32);
 }
 
 button.sectionCard {

@@ -4,7 +4,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { UserButton, useAuth, useClerk } from '@clerk/nextjs';
 import { useMutation, useQuery } from 'convex/react';
 import { api } from '@/convex/_generated/api';
+import { BottleneckCard } from '@/components/coaching/bottleneck-card';
+import { CoachingSnapshot } from '@/components/coaching/coaching-snapshot';
+import { NextActionCard } from '@/components/coaching/next-action-card';
+import { ScoreTrendCard } from '@/components/coaching/score-trend-card';
+import { WeeklyReportCard } from '@/components/coaching/weekly-report-card';
 import { formatProgressBackup, parseProgressBackup } from '@/lib/backup';
+import { buildCoachingProfile, type NextAction } from '@/lib/coaching';
 import { buildRepairNote, getMockQuestionMetadata, getMockTestMetadata, getPracticeCardMetadata } from '@/lib/content-metadata';
 import { dateAfterDays } from '@/lib/dates';
 import { canPromoteLocalStateToCloud, LOCAL_SYNC_OWNER_KEY, localStateBelongsToAnotherUser } from '@/lib/sync-ownership';
@@ -556,7 +562,8 @@ export function CoachApp() {
   }, []);
 
   useEffect(() => {
-    if (!ready || !authLoaded) return;
+    if (!ready || authState.status === 'loading') return;
+    if (authState.status === 'authenticated' && !authLoaded) return;
     const sessionMode = `${authMode}:${authState.status}:${guestSession?.id ?? 'none'}`;
     if (authModeRef.current === sessionMode) return;
     authModeRef.current = sessionMode;
@@ -581,7 +588,9 @@ export function CoachApp() {
   }, [authState.status, resetPersonalizedUiState]);
 
   useEffect(() => {
-    if (!ready || !authLoaded || syncReady) return;
+    if (!ready || syncReady) return;
+    if (authState.status === 'loading') return;
+    if (authState.status === 'authenticated' && !authLoaded) return;
     const localState = localStateRef.current;
 
     if (authState.status === 'authenticated') {
@@ -684,6 +693,7 @@ export function CoachApp() {
   const progressBackupText = useMemo(() => formatProgressBackup(toPersistableState(state)), [state]);
   const founderLaunchGate = useMemo(() => buildFounderLaunchGate(launchAudit, launchSmokeChecks), [launchAudit, launchSmokeChecks]);
   const personalProofGate = useMemo(() => buildPersonalProofGate(state), [state]);
+  const coachingProfile = useMemo(() => buildCoachingProfile(state), [state]);
   const readiness = useMemo(() => readinessScore(state), [state]);
   const todayReview = useMemo(
     () => state.reviewQueue.filter((item) => new Date(item.dueDate) <= new Date()),
@@ -1452,6 +1462,22 @@ export function CoachApp() {
     setFeedback(action.reason);
   }
 
+  function startCoachingNextAction(action: NextAction) {
+    if (action.source?.type === 'diagnostic') {
+      setTab('today');
+      setFeedback('Continue the diagnostic to unlock a reliable coaching prediction.');
+      return;
+    }
+
+    if (action.source) {
+      startSprintAction(action.source, 'dashboard');
+      return;
+    }
+
+    setTab(action.priority === 'current_path' ? 'today' : 'path');
+    setFeedback(action.reason);
+  }
+
   function getFirstValidPathAction(day: PathDayView) {
     if (day.status !== 'current' && day.status !== 'available_optional') return undefined;
 
@@ -2144,6 +2170,15 @@ export function CoachApp() {
         <>
           {tab === 'today' && (
             <section className="stack">
+              <CoachingSnapshot profile={coachingProfile} />
+
+              <div className="grid two">
+                <BottleneckCard bottleneck={coachingProfile.bottlenecks[0]} />
+                <NextActionCard action={coachingProfile.nextBestAction} onStart={() => startCoachingNextAction(coachingProfile.nextBestAction)} />
+                <ScoreTrendCard trend={coachingProfile.scoreTrend} />
+                {coachingProfile.weeklyReport && <WeeklyReportCard report={coachingProfile.weeklyReport} />}
+              </div>
+
               <div className="panel stack">
                 <div className="row">
                   <div>

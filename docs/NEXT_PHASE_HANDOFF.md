@@ -1,6 +1,6 @@
 # Next Phase Handoff: Beta Clearance to Official Launch
 
-Last updated: 2026-06-15 16:25 KST
+Last updated: 2026-06-15 21:32 KST
 Project: TOEFL 120 Coach  
 Repo: `/Users/carolinetakam/Documents/apps/toefl-120-coach-app-only`  
 Production: `https://score120coach.com`
@@ -20,6 +20,8 @@ Addendum 2026-06-15 15:19 KST: recording playback MIME handling is fixed locally
 Addendum 2026-06-15 15:34 KST: remaining P1 progress/completion UX is implemented locally in `docs/implementation-reports/2026-06-15-p1-progress-completion-ux.md`. P1 is complete locally after commit/push/deploy; production smoke blockers still govern beta clearance.
 
 Addendum 2026-06-15 16:25 KST: integrated speaking/writing materials, task timers, structure checklists, and local settings/preferences are implemented locally in `docs/implementation-reports/2026-06-15-integrated-materials-content-model.md`, `docs/implementation-reports/2026-06-15-timer-structure-tracker-ui.md`, and `docs/implementation-reports/2026-06-15-settings-preferences-ui.md`. These improve learner completion but do not change the beta-clearance gate; production signed-in sync, backup/reset/import, and support email checks remain required.
+
+Addendum 2026-06-15 21:32 KST: Coaching Intelligence Layer v1 is implemented locally in `docs/implementation-reports/2026-06-15-coaching-intelligence-layer-v1.md`. The deterministic module, unit/regression tests, Today cards, full automated gate, and local desktop/mobile guest browser QA pass. This does not clear beta; production signed-in coaching-card QA, sync, backup/reset/import, and support email checks remain required.
 
 ## Current launch decision
 
@@ -49,15 +51,16 @@ Prove that real users can safely sign in, complete the first TOEFL loop, recover
 4. Complete diagnostic.
 5. Complete one timed mini mock.
 6. Confirm review/readiness/next drill appear.
-7. Reload production and verify signed-in progress restores from Convex.
-8. Export/show backup JSON.
-9. Reset progress.
-10. Paste/import backup.
-11. Confirm profile, diagnostic, mini mock, and readiness state restore.
-12. Send a real email to `support@score120coach.com`.
-13. Confirm the email arrives in the monitored inbox.
-14. Record results in a new `docs/implementation-reports/YYYY-MM-DD-production-smoke.md` file.
-15. Update `docs/PROJECT_STATUS.md`.
+7. Confirm Today coaching cards appear after diagnostic/mini mock evidence and Best Next Action opens real work.
+8. Reload production and verify signed-in progress restores from Convex.
+9. Export/show backup JSON.
+10. Reset progress.
+11. Paste/import backup.
+12. Confirm profile, diagnostic, mini mock, coaching cards, and readiness state restore.
+13. Send a real email to `support@score120coach.com`.
+14. Confirm the email arrives in the monitored inbox.
+15. Record results in a new `docs/implementation-reports/YYYY-MM-DD-production-smoke.md` file.
+16. Update `docs/PROJECT_STATUS.md`.
 
 ### Sync-specific retest before beta clearance
 
@@ -118,6 +121,7 @@ Acceptance:
 - Public pages stay HTTP 200.
 - Signed-in sync survives reload.
 - Backup/reset/import restore works.
+- Today coaching cards appear for signed-in learner evidence, and Best Next Action opens real work.
 - Support email is confirmed.
 - No learner-facing flow claims official TOEFL scoring.
 

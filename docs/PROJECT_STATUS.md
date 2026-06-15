@@ -1,6 +1,6 @@
 # TOEFL 120 Coach Project Status
 
-Last updated: 2026-06-15 16:25 KST
+Last updated: 2026-06-15 21:32 KST
 Repo: `/Users/carolinetakam/Documents/apps/toefl-120-coach-app-only`  
 Production URL: `https://score120coach.com`  
 Current branch: `main`  
@@ -55,6 +55,8 @@ The roadmap also required low-cost deterministic behavior first: use existing se
 - Integrated speaking/writing content model support now distinguishes answerable learner tasks from summary-only/template-only support materials and refuses to score incomplete integrated tasks.
 - Practice and mini mock speaking/writing UI now exposes source materials, structure templates, examples, task timers, and structure checklists while hiding answer submission for support-only/template-only material.
 - Sidebar settings now provide local preferences for timers, templates, and examples plus quick microphone help access. Theme mode was not added because the app is currently light-only.
+- Coaching Intelligence Layer v1 now derives a deterministic coaching profile from saved app state: predicted score availability/confidence, bottlenecks, next best action, score trend, and weekly report. It uses no AI calls, network calls, persistence changes, or official ETS score claims.
+- Today now shows Coaching Snapshot, Biggest Bottleneck, Best Next Action, Score Trend, and Weekly Report cards when enough learner evidence exists. Best Next Action routes into existing diagnostic, review, Path, or Library work rather than a placeholder.
 - Deterministic scoring/reporting; no official ETS score claim.
 - Launch readiness gate in `lib/launch-readiness.ts`.
 - Backup/restore support in `lib/backup.ts`.
@@ -72,6 +74,7 @@ The roadmap also required low-cost deterministic behavior first: use existing se
 - A local recording playback MIME fix now creates playback blobs with the browser-supported recorder MIME type instead of always forcing `audio/webm`. This targets the screenshot issue where the browser audio control showed `Error` after recording. Live microphone retest remains required.
 - Local P1 progress/completion UX is now complete: required path days need all required submitted actions, locked days name missing required repairs, Path/Progress missing repairs are clickable, and submitted work shows a next-step prompt. This is verified locally but not yet deployed.
 - Local integrated-materials, timer/structure, and settings/preferences UX is implemented and verified locally. Production deployment and live learner smoke remain unverified.
+- Local Coaching Intelligence Layer v1 module, Today UI, regression coverage, full automated gate, and desktop/mobile guest browser QA are complete. Production signed-in coaching-card QA remains unverified.
 - No verified live backup/export/reset/paste-import restore smoke test in this phase.
 - No verified real support email send/receive loop in this phase.
 - Attempts are still primarily full-state/client-flow based, not a fully event-based immutable attempt engine.
@@ -90,11 +93,13 @@ export PATH=/Users/carolinetakam/.cache/codex-runtimes/codex-primary-runtime/dep
 
 | Gate | Result | Evidence |
 | --- | --- | --- |
-| Full Vitest suite | PASS | `vitest run --pool=threads` -> 25 test files passed, 124 tests passed |
+| Full Vitest suite | PASS | `vitest run --pool=threads` -> 32 test files passed, 147 tests passed after Coaching Intelligence Layer v1 regression coverage |
 | TypeScript | PASS | `tsc --noEmit` completed before build |
 | ESLint | PASS | `eslint .` completed before build |
 | Production build | PASS | `next build --webpack` compiled and generated 9 static pages |
 | Local production UI smoke | PASS with auth-provider warnings | `next start --port 3002` returned HTTP 200; headless Chromium verified guest mode after auth timeout, Settings panel, Mic help, and active Timers/Templates/Examples toggles on desktop/mobile. Local Clerk resource calls returned two 400 errors, matching local auth-provider checks rather than app runtime exceptions. |
+| Local coaching browser QA | PASS with auth-provider warnings | Headless Chromium verified desktop/mobile Today coaching cards, guest banner, no horizontal overflow, no forbidden score claims, Best Next Action opening a real Library task, and Path/Progress/Library tab loads. |
+| Coaching unit/regression tests | PASS | `vitest run lib/coaching --pool=threads` -> 7 files / 23 tests covering prediction priority, bottlenecks, next action, trend, weekly report, reset, and backup import regeneration. |
 | Production readiness API | PASS with manual checks still required | `https://score120coach.com/api/readiness` returned `ready:true`, `audit.ready:true`, `manualReviewRequired:true` |
 | Public production routes | PASS | `/`, `/beta`, `/support`, `/privacy`, `/terms`, `/korea` all returned HTTP 200 |
 | Convex production validator deploy | PASS | `convex deploy --env-file /tmp/toefl-convex-prod.env --message "fix app state validator for production sync"` deployed to `brainy-chicken-240` |
@@ -115,6 +120,7 @@ The app is close, but beta onboarding should remain blocked until these are veri
 
 - [ ] Real test account can sign in on `https://score120coach.com`.
 - [ ] Profile, diagnostic, and one mini mock can be completed in production.
+- [ ] Today coaching cards appear for a signed-in production learner after diagnostic/mini mock evidence, and Best Next Action opens real work.
 - [ ] Reload after signed-in work restores progress from Convex.
 - [ ] Backup/export or show-backup JSON works.
 - [ ] Reset progress works.
@@ -127,9 +133,10 @@ The app is close, but beta onboarding should remain blocked until these are veri
 
 1. **Manual production sync incomplete:** Same-account logout/login and incognito restore are user-reported passing, but different-account isolation and Safari still need production browser verification.
 2. **Backup/reset trust incomplete:** Backup export, reset, and import access have positive evidence, but imported-data restore correctness is not proven.
-3. **Support deliverability unknown:** Beta users need a real support path before invitation.
-4. **Full-state sync is transitional:** Good enough for first beta if smoke-tested; should become event-based before paid/public launch.
-5. **Speaking/audio durability:** Do not market durable audio review yet.
+3. **Coaching production account QA incomplete:** Coaching cards are locally verified in guest mode, but signed-in production persistence/display still needs the production smoke above.
+4. **Support deliverability unknown:** Beta users need a real support path before invitation.
+5. **Full-state sync is transitional:** Good enough for first beta if smoke-tested; should become event-based before paid/public launch.
+6. **Speaking/audio durability:** Do not market durable audio review yet.
 
 ## Canonical docs for agents
 
