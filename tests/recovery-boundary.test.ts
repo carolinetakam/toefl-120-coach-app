@@ -34,4 +34,10 @@ describe('root app recovery boundary', () => {
     expect(coachAppSource).toContain('CLOUD_RESTORE_RENDER_CHECK_FAILED');
     expect(coachAppSource).toContain("setSaveStatus('Offline')");
   });
+
+  it('does not mark an empty cloud restore as synced blank progress', () => {
+    expect(coachAppSource).toContain('preventBlankCloudOverwriteRef');
+    expect(coachAppSource).toContain('No saved cloud progress was found');
+    expect(coachAppSource).not.toContain("setSaveStatus('Synced');\n      setSyncReady(true);\n      return;\n    }\n\n    if (authState.status === 'guest')");
+  });
 });

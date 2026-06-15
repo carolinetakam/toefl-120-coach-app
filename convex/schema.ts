@@ -7,11 +7,15 @@ const section = v.union(v.literal('reading'), v.literal('listening'), v.literal(
 export default defineSchema({
   users: defineTable({
     tokenIdentifier: v.string(),
+    subject: v.optional(v.string()),
     email: v.optional(v.string()),
     name: v.optional(v.string()),
     createdAt: v.number(),
     updatedAt: v.number(),
-  }).index('by_tokenIdentifier', ['tokenIdentifier']),
+  })
+    .index('by_tokenIdentifier', ['tokenIdentifier'])
+    .index('by_subject', ['subject'])
+    .index('by_email', ['email']),
 
   profiles: defineTable({
     userId: v.id('users'),

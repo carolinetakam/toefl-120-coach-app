@@ -512,6 +512,7 @@ export function CoachApp() {
   const localStateRef = useRef<AppState>(initialState);
   const authModeRef = useRef<string | undefined>(undefined);
   const previousAuthStatusRef = useRef<AuthStatus>('loading');
+  const preventBlankCloudOverwriteRef = useRef(false);
   const { isLoaded: authLoaded, isSignedIn, userId } = useAuth();
   const { signOut } = useClerk();
   const authMode = authLoaded ? (isSignedIn ? `signed-in:${userId ?? 'unknown'}` : 'signed-out') : 'loading';
@@ -642,6 +643,7 @@ export function CoachApp() {
     const localState = shouldLoadLocalState ? loadState() : initialState;
     localStateRef.current = localState;
     setState(localState);
+    preventBlankCloudOverwriteRef.current = false;
     setSyncReady(false);
   }, [authLoaded, authMode, authState.status, guestSession?.id, ready]);
 
@@ -686,6 +688,7 @@ export function CoachApp() {
       const localOwner = getLocalSyncOwner();
 
       if (remoteState && hasUserProgress(remoteState)) {
+        preventBlankCloudOverwriteRef.current = false;
         setState(remoteState);
         saveState(remoteState);
         setLocalSyncOwner(userId);
@@ -707,6 +710,7 @@ export function CoachApp() {
       }
 
       if (canPromoteLocalStateToCloud(hasUserProgress(localState), localOwner, userId)) {
+        preventBlankCloudOverwriteRef.current = false;
         console.log('CLOUD_SAVE_START');
         saveConvexState({ schemaVersion: 1, state: toPersistableState(localState) })
           .then(() => {
@@ -723,7 +727,10 @@ export function CoachApp() {
       }
 
       setLocalSyncOwner(userId);
-      setSaveStatus('Synced');
+      preventBlankCloudOverwriteRef.current = true;
+      setSaveStatus('Offline');
+      setSyncRestoreError('No saved cloud progress was found for this account. Start new work only if you expect a fresh account; this session will not overwrite cloud progress with a blank profile.');
+      setFeedback('No saved cloud progress was found. Blank profile was not synced over existing progress.');
       setSyncReady(true);
       return;
     }
@@ -741,6 +748,13 @@ export function CoachApp() {
     if (!ready || !syncReady) return;
     if (authState.status === 'unauthenticated' || authState.status === 'loading') return;
     saveState(state);
+    if (authState.status === 'authenticated' && preventBlankCloudOverwriteRef.current && !hasUserProgress(state)) {
+      setSaveStatus('Offline');
+      return;
+    }
+    if (authState.status === 'authenticated' && hasUserProgress(state)) {
+      preventBlankCloudOverwriteRef.current = false;
+    }
     setSaveStatus('Syncing');
     const timeout = window.setTimeout(() => {
       const cleanState = toPersistableState(state);

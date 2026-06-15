@@ -14,25 +14,49 @@ async function getUserId(ctx: QueryCtx | MutationCtx) {
     return null;
   }
 
+  const existing = await findExistingUser(ctx, identity);
   console.log('CONVEX_AUTH_STATE', {
     operation: 'getUserId',
     hasIdentity: true,
     identifierUsed: 'tokenIdentifier',
     hasSubject: Boolean(identity.subject),
     hasTokenIdentifier: Boolean(identity.tokenIdentifier),
+    matchedUser: Boolean(existing),
   });
 
-  const existing = await ctx.db
+  return existing?._id ?? null;
+}
+
+async function findExistingUser(ctx: QueryCtx | MutationCtx, identity: NonNullable<Awaited<ReturnType<QueryCtx['auth']['getUserIdentity']>>>) {
+  const byToken = await ctx.db
     .query('users')
     .withIndex('by_tokenIdentifier', (q) => q.eq('tokenIdentifier', identity.tokenIdentifier))
     .unique();
+  if (byToken) return byToken;
 
-  return existing?._id ?? null;
+  if (identity.subject) {
+    const bySubject = await ctx.db
+      .query('users')
+      .withIndex('by_subject', (q) => q.eq('subject', identity.subject))
+      .unique();
+    if (bySubject) return bySubject;
+  }
+
+  if (identity.email) {
+    return await ctx.db
+      .query('users')
+      .withIndex('by_email', (q) => q.eq('email', identity.email))
+      .unique();
+  }
+
+  return null;
 }
 
 async function requireUser(ctx: MutationCtx) {
   const identity = await ctx.auth.getUserIdentity();
   if (!identity) throw new Error('Not authenticated');
+
+  const existing = await findExistingUser(ctx, identity);
 
   console.log('CONVEX_AUTH_STATE', {
     operation: 'requireUser',
@@ -40,17 +64,23 @@ async function requireUser(ctx: MutationCtx) {
     identifierUsed: 'tokenIdentifier',
     hasSubject: Boolean(identity.subject),
     hasTokenIdentifier: Boolean(identity.tokenIdentifier),
+    matchedUser: Boolean(existing),
   });
 
-  const existing = await ctx.db
-    .query('users')
-    .withIndex('by_tokenIdentifier', (q) => q.eq('tokenIdentifier', identity.tokenIdentifier))
-    .unique();
-
-  if (existing) return existing._id;
+  if (existing) {
+    await ctx.db.patch(existing._id, {
+      tokenIdentifier: identity.tokenIdentifier,
+      subject: identity.subject,
+      email: identity.email,
+      name: identity.name,
+      updatedAt: Date.now(),
+    });
+    return existing._id;
+  }
 
   return await ctx.db.insert('users', {
     tokenIdentifier: identity.tokenIdentifier,
+    subject: identity.subject,
     email: identity.email,
     name: identity.name,
     createdAt: Date.now(),
