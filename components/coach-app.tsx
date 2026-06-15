@@ -600,6 +600,13 @@ export function CoachApp() {
   }, [authLoaded, guestSession, isSignedIn, recoveryMode, signedOutLocally, userId]);
 
   useEffect(() => {
+    if (authState.status !== 'unauthenticated') return;
+    if (typeof window === 'undefined') return;
+    if (window.location.pathname === '/sign-in' || window.location.pathname === '/sign-up') return;
+    window.location.assign('/sign-in');
+  }, [authState.status]);
+
+  useEffect(() => {
     if (authLoaded) {
       setAuthCheckTimedOut(false);
       return;
@@ -644,6 +651,7 @@ export function CoachApp() {
     localStateRef.current = localState;
     setState(localState);
     preventBlankCloudOverwriteRef.current = false;
+    if (authState.status === 'authenticated') setSaveStatus('Syncing');
     setSyncReady(false);
   }, [authLoaded, authMode, authState.status, guestSession?.id, ready]);
 
@@ -1093,7 +1101,7 @@ export function CoachApp() {
     setSyncReady(false);
     setSaveStatus('Local');
     setFeedback('Signed out. Log in to restore saved progress, or continue as guest.');
-    await signOut({ redirectUrl: '/' });
+    await signOut({ redirectUrl: '/sign-in' });
   }
 
   function useThreeDaySprint() {
@@ -1923,7 +1931,10 @@ export function CoachApp() {
     .filter((card) => card.id !== currentCard.id && card.id !== firstRecommendedCard.id)
     .slice(0, 3);
   const canChooseAnotherCard = relatedPracticeCards.length > 0;
-  const learnerName = authState.status === 'unauthenticated'
+  const isRestoringAuthenticatedProgress = authState.status === 'authenticated' && !syncReady;
+  const learnerName = isRestoringAuthenticatedProgress
+    ? 'Restoring progress'
+    : authState.status === 'unauthenticated'
     ? 'Signed out'
     : authState.status === 'guest'
       ? 'Guest learner'
@@ -1944,7 +1955,7 @@ export function CoachApp() {
         : 'loading';
   const saveStatusClass = saveStatus.toLowerCase();
   const workflow = getFirstUserLoopSteps(state);
-  const shouldBlockPersonalizedContent = authState.status === 'loading' || authState.status === 'unauthenticated';
+  const shouldBlockPersonalizedContent = authState.status === 'loading' || authState.status === 'unauthenticated' || isRestoringAuthenticatedProgress;
   const authControls = (
     <div className="chips authControls">
       {authState.status === 'loading' && <span className="chip">Checking account</span>}
@@ -1973,10 +1984,12 @@ export function CoachApp() {
   const signedOutPrompt = (
     <section className="panel stack authPrompt" aria-label="Signed out prompt">
       <div className="stack">
-        <span className="kicker">{authState.status === 'loading' ? 'Checking account' : 'Signed out'}</span>
-        <h2>{authState.status === 'loading' ? 'Checking your account state.' : 'You are currently signed out.'}</h2>
+        <span className="kicker">{isRestoringAuthenticatedProgress ? 'Restoring progress' : authState.status === 'loading' ? 'Checking account' : 'Signed out'}</span>
+        <h2>{isRestoringAuthenticatedProgress ? 'Loading your saved TOEFL path.' : authState.status === 'loading' ? 'Checking your account state.' : 'You are currently signed out.'}</h2>
         <p className="copy">
-          {authState.status === 'loading'
+          {isRestoringAuthenticatedProgress
+            ? 'The app is waiting for your signed-in cloud progress before showing personalized work.'
+            : authState.status === 'loading'
             ? 'Personalized progress is hidden until account state is confirmed.'
             : 'Log in to continue your saved TOEFL path, or continue as guest for a local preview.'}
         </p>

@@ -28,6 +28,12 @@ describe('root app recovery boundary', () => {
     expect(coachAppSource).toContain("authState.status === 'authenticated' && (");
   });
 
+  it('routes signed-out root sessions back to the dedicated sign-in page', () => {
+    expect(coachAppSource).toContain("if (authState.status !== 'unauthenticated') return;");
+    expect(coachAppSource).toContain("window.location.assign('/sign-in')");
+    expect(coachAppSource).toContain("await signOut({ redirectUrl: '/sign-in' });");
+  });
+
   it('checks restored cloud state before replacing the renderable workspace', () => {
     expect(coachAppSource).toContain('function assertRenderableAppState');
     expect(coachAppSource).toContain('if (remoteState) assertRenderableAppState(remoteState);');
@@ -39,5 +45,11 @@ describe('root app recovery boundary', () => {
     expect(coachAppSource).toContain('preventBlankCloudOverwriteRef');
     expect(coachAppSource).toContain('No saved cloud progress was found');
     expect(coachAppSource).not.toContain("setSaveStatus('Synced');\n      setSyncReady(true);\n      return;\n    }\n\n    if (authState.status === 'guest')");
+  });
+
+  it('hides default profile content while authenticated progress is still restoring', () => {
+    expect(coachAppSource).toContain('isRestoringAuthenticatedProgress');
+    expect(coachAppSource).toContain("authState.status === 'authenticated' && !syncReady");
+    expect(coachAppSource).toContain('Loading your saved TOEFL path.');
   });
 });
