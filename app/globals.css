@@ -169,6 +169,14 @@ audio {
   line-height: 1.6;
 }
 
+.authFallbackLink {
+  width: fit-content;
+  color: var(--accent);
+  font-weight: 800;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
 .stack {
   display: grid;
   gap: 16px;

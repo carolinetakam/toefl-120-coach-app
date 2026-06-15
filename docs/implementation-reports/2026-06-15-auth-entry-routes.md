@@ -2,12 +2,12 @@
 
 Date/time: 2026-06-15 23:08 KST  
 Repo: `/Users/carolinetakam/Documents/Apps/toefl-120-coach-app-only`  
-Branch/head: `main` / `ea28e71` then documentation update  
+Branch/head: `main` / `ea28e71`, `728c13b`, then fallback patch
 Owner/agent: Codex
 
 ## 1. Status
 
-Done, pushed, deployed to production, and production auth-entry pages smoke-tested without credentials. Real-account login remains unverified.
+Done, pushed, deployed to production, and production auth-entry pages smoke-tested without credentials. A second fallback patch adds modal-login links for users whose browser fails to load the full-page Clerk surface. Real-account login remains unverified.
 
 ## 2. Objective
 
@@ -26,8 +26,11 @@ Used:
 ## 4. Files changed
 
 - `components/coach-app.tsx`: changed `Log In` and `Create Account` actions from Clerk modal calls to full-page `/sign-in` and `/sign-up` navigation.
+- `components/coach-app.tsx`: added `/?auth=sign-in` and `/?auth=sign-up` fallback handling to open the Clerk modal from the home page.
 - `app/sign-in/[[...sign-in]]/page.tsx`: added a dedicated Clerk sign-in page with redirect back to `/`.
 - `app/sign-up/[[...sign-up]]/page.tsx`: added a dedicated Clerk sign-up page with redirect back to `/`.
+- `app/sign-in/[[...sign-in]]/page.tsx`: added a visible fallback link to open the login popup.
+- `app/sign-up/[[...sign-up]]/page.tsx`: added a visible fallback link to open the account popup.
 - `app/globals.css`: added responsive auth-page layout styles.
 
 ## 5. What shipped
@@ -36,8 +39,10 @@ The app now has durable auth entry URLs:
 
 - `/sign-in`
 - `/sign-up`
+- `/?auth=sign-in`
+- `/?auth=sign-up`
 
-Signed-out app buttons route to those pages instead of relying only on an overlay modal. This should be more reliable for mobile browsers, strict browser settings, and users who need a shareable login URL.
+Signed-out app buttons route to the full pages instead of relying only on an overlay modal. The full pages also provide fallback links back to the original modal flow, so users have two auth entry paths if one browser surface fails.
 
 ## 6. What was verified
 
@@ -59,6 +64,11 @@ Browser checks:
 - `curl` production route smoke -> HTTP 200 for `/`, `/sign-in`, `/sign-up`, `/beta`, `/support`, `/privacy`, `/terms`, and `/korea`.
 - `https://score120coach.com/api/readiness` -> `ready:true` and `manualReviewRequired:true`.
 - Production Chromium smoke verified the live `Log In` button routes to `/sign-in`, `/sign-in` renders Clerk email/password fields, `/sign-up` renders Clerk account creation fields, and no console errors or HTTP 4xx/5xx responses appeared.
+- After the user reported "the page could not be loaded", local fallback patch verification ran:
+  - `tsc --noEmit` -> PASS.
+  - focused `eslint` on auth files and `components/coach-app.tsx` -> PASS.
+  - `next build --webpack` -> PASS.
+  - local `/?auth=sign-in` smoke confirmed the fallback path triggers the sign-in surface and `/sign-in` shows the fallback link. Clerk returned the known localhost-only HTTP 400 under live production keys.
 
 Local limitation:
 
@@ -84,3 +94,5 @@ This reduces login-entry risk and verifies the production auth pages render, but
 ## 10. Next smallest useful step
 
 Complete one real-account login at `https://score120coach.com/sign-in` and verify the app returns to `/` as signed in with `Save Synced`.
+
+If the full-page auth still shows "page could not be loaded", use `https://score120coach.com/?auth=sign-in` to open the modal login fallback and capture the exact browser/device if both paths fail.

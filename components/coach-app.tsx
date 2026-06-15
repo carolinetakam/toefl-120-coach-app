@@ -479,9 +479,10 @@ export function CoachApp() {
   const localStateRef = useRef<AppState>(initialState);
   const authModeRef = useRef<string | undefined>(undefined);
   const previousAuthStatusRef = useRef<AuthStatus>('loading');
+  const authFallbackOpenedRef = useRef(false);
   const { isLoaded: authLoaded, isSignedIn, userId } = useAuth();
   const router = useRouter();
-  const { signOut } = useClerk();
+  const { openSignIn, openSignUp, signOut } = useClerk();
   const authMode = authLoaded ? (isSignedIn ? `signed-in:${userId ?? 'unknown'}` : 'signed-out') : 'loading';
   const authState: AuthState = useMemo(() => {
     if (!ready || (!authLoaded && !authCheckTimedOut)) return { status: 'loading', user: null, isGuest: false };
@@ -542,6 +543,20 @@ export function CoachApp() {
     const timeout = window.setTimeout(() => setAuthCheckTimedOut(true), 2500);
     return () => window.clearTimeout(timeout);
   }, [authLoaded]);
+
+  useEffect(() => {
+    if (!ready || !authLoaded || authFallbackOpenedRef.current) return;
+    if (typeof window === 'undefined') return;
+    const authAction = new URLSearchParams(window.location.search).get('auth');
+    if (authAction !== 'sign-in' && authAction !== 'sign-up') return;
+    authFallbackOpenedRef.current = true;
+    setSignedOutLocally(false);
+    if (authAction === 'sign-up') {
+      openSignUp();
+      return;
+    }
+    openSignIn();
+  }, [authLoaded, openSignIn, openSignUp, ready]);
 
   useEffect(() => {
     let cancelled = false;
