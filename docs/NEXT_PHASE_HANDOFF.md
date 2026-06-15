@@ -1,6 +1,6 @@
 # Next Phase Handoff: Beta Clearance to Official Launch
 
-Last updated: 2026-06-15 22:11 KST
+Last updated: 2026-06-15 22:22 KST
 Project: TOEFL 120 Coach  
 Repo: `/Users/carolinetakam/Documents/apps/toefl-120-coach-app-only`  
 Production: `https://score120coach.com`
@@ -24,6 +24,8 @@ Addendum 2026-06-15 16:25 KST: integrated speaking/writing materials, task timer
 Addendum 2026-06-15 21:32 KST: Coaching Intelligence Layer v1 is implemented locally in `docs/implementation-reports/2026-06-15-coaching-intelligence-layer-v1.md`. The deterministic module, unit/regression tests, Today cards, full automated gate, and local desktop/mobile guest browser QA pass. This does not clear beta; production signed-in coaching-card QA, sync, backup/reset/import, and support email checks remain required.
 
 Addendum 2026-06-15 22:11 KST: Model Answer & Compare Workflow v1 is implemented locally in `docs/implementation-reports/2026-06-15-model-answer-compare-workflow.md`. Speaking/Writing practice and mini mock tasks now expose static approved model answers in-task and checklist-only compare cards after submission. Automated gates and local guest browser QA pass. This does not clear beta; production signed-in sync, backup/reset/import, support email checks, and production deployment/signed-in display verification remain required.
+
+Addendum 2026-06-15 22:22 KST: Support email smoke is partially complete in `docs/implementation-reports/2026-06-15-support-email-smoke.md`. Production support page returns HTTP 200, Cloudflare MX records are present/reachable, and the MX accepts `support@score120coach.com` as a recipient before DATA. A raw unauthenticated SMTP DATA send from this machine was rejected with `550 5.7.26 Cannot forward emails that are not authenticated`, so monitored inbox receipt is still unverified. Next step: send from a normal authenticated mailbox and confirm arrival in the monitored inbox.
 
 ## Current launch decision
 
@@ -59,7 +61,7 @@ Prove that real users can safely sign in, complete the first TOEFL loop, recover
 10. Reset progress.
 11. Paste/import backup.
 12. Confirm profile, diagnostic, mini mock, coaching cards, and readiness state restore.
-13. Send a real email to `support@score120coach.com`.
+13. Send a real authenticated email to `support@score120coach.com`.
 14. Confirm the email arrives in the monitored inbox.
 15. Record results in a new `docs/implementation-reports/YYYY-MM-DD-production-smoke.md` file.
 16. Update `docs/PROJECT_STATUS.md`.
