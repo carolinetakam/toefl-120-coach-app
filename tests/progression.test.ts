@@ -49,7 +49,8 @@ describe('progression helpers', () => {
     const days = buildPathDayViews(state);
 
     expect(days[1].status).toBe('locked');
-    expect(days[1].unlockReason).toBe('Locked until today’s mission is complete');
+    expect(days[1].unlockReason).toBe('Day 2 is locked because 2 required repair exercises are incomplete from Day 1.');
+    expect(days[1].missingRequiredActions.map((item) => item.label)).toEqual(['Record timed speaking', 'Write discussion template']);
   });
 
   it('keeps normal future days locked even after the diagnostic is complete', () => {
@@ -97,7 +98,7 @@ describe('progression helpers', () => {
     const state = stateWith({
       onboarded: true,
       diagnosticCompleted: true,
-      practiceHistory: [practiceResult('pr-s-2-proof', 'speaking')],
+      practiceHistory: [practiceResult('pr-s-2-proof', 'speaking'), practiceResult('pr-w-4-proof', 'writing')],
     });
     const days = buildPathDayViews(state);
 
@@ -116,7 +117,7 @@ describe('progression helpers', () => {
 
     expect(days[0].status).toBe('current');
     expect(days[1].status).toBe('locked');
-    expect(mission.checklist.find((item) => item.label === 'Complete today’s primary drill')?.done).toBe(false);
+    expect(mission.checklist.find((item) => item.label === 'Submit: Record timed speaking')?.done).toBe(false);
   });
 
   it('lets completed evidence win over urgent optional sprint status', () => {
@@ -124,7 +125,13 @@ describe('progression helpers', () => {
       onboarded: true,
       diagnosticCompleted: true,
       profile: { ...initialState.profile, testDate: dateAfterDays(1), dailyMinutes: 60 },
-      practiceHistory: [practiceResult('pr-s-2-proof', 'speaking'), practiceResult('pr-r-1-proof', 'reading')],
+      practiceHistory: [
+        practiceResult('pr-s-2-proof', 'speaking'),
+        practiceResult('pr-w-4-proof', 'writing'),
+        practiceResult('pr-r-1-proof', 'reading'),
+        practiceResult('pr-l-5-proof', 'listening'),
+        practiceResult('pr-s-4-proof', 'speaking'),
+      ],
     });
     const days = buildPathDayViews(state);
 
@@ -137,14 +144,14 @@ describe('progression helpers', () => {
     const state = stateWith({ onboarded: true, diagnosticCompleted: true });
 
     expect(canAccessMock(state).allowed).toBe(false);
-    expect(canAccessMock(state).reason).toContain('Complete one repair drill');
+    expect(canAccessMock(state).reason).toContain('Complete 2 required repair exercises');
   });
 
   it('unlocks mini mock after diagnostic and repair evidence', () => {
     const state = stateWith({
       onboarded: true,
       diagnosticCompleted: true,
-      practiceHistory: [practiceResult('pr-r-1-proof', 'reading')],
+      practiceHistory: [practiceResult('pr-s-2-proof', 'speaking'), practiceResult('pr-w-4-proof', 'writing')],
       reviewQueue: [
         {
           id: 'review-1',

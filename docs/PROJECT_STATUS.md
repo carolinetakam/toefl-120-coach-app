@@ -1,6 +1,6 @@
 # TOEFL 120 Coach Project Status
 
-Last updated: 2026-06-15 15:19 KST
+Last updated: 2026-06-15 15:34 KST
 Repo: `/Users/carolinetakam/Documents/apps/toefl-120-coach-app-only`  
 Production URL: `https://score120coach.com`  
 Current branch: `main`  
@@ -52,6 +52,7 @@ The roadmap also required low-cost deterministic behavior first: use existing se
   - strategy card IDs;
   - cues, traps, timing, explanations, repair rules;
   - strategy reveal/open behavior from Today.
+- Integrated speaking/writing content model support now distinguishes answerable learner tasks from summary-only/template-only support materials and refuses to score incomplete integrated tasks.
 - Deterministic scoring/reporting; no official ETS score claim.
 - Launch readiness gate in `lib/launch-readiness.ts`.
 - Backup/restore support in `lib/backup.ts`.
@@ -67,6 +68,7 @@ The roadmap also required low-cost deterministic behavior first: use existing se
 - Local auth-state hardening now prevents signed-out/loading users from seeing stale personalized workspace content, adds explicit `Log In`, `Continue as Guest`, and `Create Account` actions, and makes guest mode explicit/local-only. This is verified locally but not yet deployed or tested with a real production Clerk account.
 - Local recording UX hardening now preserves task context when opening recording from Path/Mini Mock, shows a dominant recorder panel with duration/playback/re-record controls, and adds blocked microphone fallback actions for Self-Rating Mode, microphone help, and returning to the exercise. This is verified locally but not yet deployed or tested with a real microphone in production.
 - A local recording playback MIME fix now creates playback blobs with the browser-supported recorder MIME type instead of always forcing `audio/webm`. This targets the screenshot issue where the browser audio control showed `Error` after recording. Live microphone retest remains required.
+- Local P1 progress/completion UX is now complete: required path days need all required submitted actions, locked days name missing required repairs, Path/Progress missing repairs are clickable, and submitted work shows a next-step prompt. This is verified locally but not yet deployed.
 - No verified live backup/export/reset/paste-import restore smoke test in this phase.
 - No verified real support email send/receive loop in this phase.
 - Attempts are still primarily full-state/client-flow based, not a fully event-based immutable attempt engine.

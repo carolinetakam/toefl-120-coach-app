@@ -19,7 +19,7 @@ import { evaluateSpeakingAttempt, evaluateWritingAttempt, SkillEvaluation } from
 import { resolveMockSelection, resolvePracticeCardSelection } from '@/lib/selection-recovery';
 import { initialState, practiceCards, sectionLabels } from '@/lib/seed';
 import { getSprintMode, getTodaySprintDay, sectionPlaybooks, type SprintAction } from '@/lib/sprint';
-import { buildPathDayViews, canAccessFullLibrary, canAccessMock, getTodayMission, type PathDayView, type UnlockStatus } from '@/lib/progression';
+import { buildPathDayViews, canAccessFullLibrary, canAccessMock, getMissingRequiredActions, getTodayMission, type MissingRequiredAction, type PathDayView, type UnlockStatus } from '@/lib/progression';
 import { loadState, resetState, saveState, toPersistableState } from '@/lib/storage';
 import { buildTestWeekCommand, formatFinalTemplateSheet, formatLearnerReadinessReport, generateTestDayPlan, generateTestReadinessReport } from '@/lib/test-readiness';
 import { elapsedSeconds, formatElapsedSeconds } from '@/lib/timing';
@@ -49,6 +49,13 @@ type TaskContext = {
 
 type RecorderState = 'idle' | 'permission-checking' | 'recording' | 'paused' | 'stopped' | 'playback' | 'error';
 type MicrophonePermissionState = 'unknown' | 'granted' | 'denied' | 'prompt';
+
+type NextStepPromptState = {
+  completedTitle: string;
+  nextTitle: string;
+  nextReason: string;
+  action: SprintAction | SprintNextAction;
+};
 
 type GuestSession = {
   id: string;
@@ -408,6 +415,7 @@ export function CoachApp() {
   const [microphoneMessage, setMicrophoneMessage] = useState('');
   const [showMicrophoneHelp, setShowMicrophoneHelp] = useState(false);
   const [taskContext, setTaskContext] = useState<TaskContext | null>(null);
+  const [nextStepPrompt, setNextStepPrompt] = useState<NextStepPromptState | null>(null);
   const [audioUrl, setAudioUrl] = useState<string>();
   const [clockNow, setClockNow] = useState(() => Date.now());
   const [diagnosticStartedAt, setDiagnosticStartedAt] = useState<number | null>(null);
@@ -460,6 +468,7 @@ export function CoachApp() {
     setRecorderState('idle');
     setMicrophonePermissionState('unknown');
     setMicrophoneMessage('');
+    setNextStepPrompt(null);
     setTab('today');
   }, []);
 
@@ -672,6 +681,7 @@ export function CoachApp() {
   const hasSpeakingAudioEvidence = state.speakingAttempts.some((attempt) => attempt.hasAudioEvidence);
   const sprintNextAction = useMemo(() => getSprintNextAction(state), [state]);
   const pathDayViews = useMemo(() => buildPathDayViews(state), [state]);
+  const missingRequiredActions = useMemo(() => getMissingRequiredActions(state), [state]);
   const todayMission = useMemo(() => getTodayMission(state), [state]);
   const miniMockGate = useMemo(() => canAccessMock(state), [state]);
   const fullLibraryGate = useMemo(() => canAccessFullLibrary(state), [state]);
@@ -1007,6 +1017,7 @@ export function CoachApp() {
     setSection(card.section);
     setSelectedCardId((prev) => ({ ...prev, [card.section]: card.id }));
     setTaskContext(context ?? taskContextForCard(card, sourcePageFromTab(tab)));
+    setNextStepPrompt(null);
     setFeedback('');
   }
 
@@ -1050,6 +1061,7 @@ export function CoachApp() {
     };
 
     setState(nextState);
+    setNextStepPrompt(buildNextStepPrompt(card.title, nextState));
 
     const reveal = buildDailyMissionReveal(state, nextState);
     const firstStrategyReveal = !alreadyCompletedStrategy ? buildObjectiveStrategyLayerReveal(card, correct) : '';
@@ -1068,6 +1080,7 @@ export function CoachApp() {
       setFeedback('Add a draft before saving the writing attempt.');
       return;
     }
+    const now = new Date().toISOString();
     const evaluation = evaluateWritingAttempt(card, writingDraft, writingRevision);
     const score = evaluation.score;
     const supported = evaluation.band !== 'ready';
@@ -1084,11 +1097,11 @@ export function CoachApp() {
       reviewQueue: [buildReviewCard(card), ...state.reviewQueue],
       practiceHistory: [
         {
-          id: `${card.id}-${Date.now()}`,
+          id: `${card.id}-${now}`,
           section: 'writing' as Section,
           subskill: card.subskill,
           score,
-          completedAt: new Date().toISOString(),
+          completedAt: now,
           notes: supported ? 'Draft only' : 'Draft and revision',
           supported,
         },
@@ -1103,6 +1116,7 @@ export function CoachApp() {
     setState(nextState);
 
     setLastWritingEvaluation(evaluation);
+    setNextStepPrompt(buildNextStepPrompt(card.title, nextState));
     const reveal = buildDailyMissionReveal(state, nextState);
     const firstStrategyReveal = !alreadyCompletedStrategy ? buildEvidenceStrategyLayerReveal(card, evaluation, supported) : '';
     setFeedback(firstStrategyReveal || reveal || `${evaluation.summary} Repair: ${evaluation.repairs[0]}`);
@@ -1257,6 +1271,51 @@ export function CoachApp() {
       throw new Error(`Sprint action references missing practice card ${action.cardId}.`);
     }
     return card;
+  }
+
+  function buildNextStepPrompt(completedTitle: string, nextState: AppState): NextStepPromptState {
+    const missing = getMissingRequiredActions(nextState)[0];
+    if (missing) {
+      return {
+        completedTitle,
+        nextTitle: `Required Repair — ${missing.label}`,
+        nextReason: missing.reason,
+        action: missing.action,
+      };
+    }
+
+    const nextAction = getSprintNextAction(nextState);
+    return {
+      completedTitle,
+      nextTitle: nextAction.type === 'mock' ? nextAction.title : `Required Repair — ${nextAction.title}`,
+      nextReason: nextAction.reason,
+      action: nextAction,
+    };
+  }
+
+  function openRequiredAction(item: MissingRequiredAction, sourcePage: TaskContext['sourcePage'] = 'progress') {
+    startSprintAction(item.action, sourcePage, item.day);
+  }
+
+  function openPracticeHistoryItem(entry: AppState['practiceHistory'][number]) {
+    const card = sectionOrder.flatMap((item) => practiceCards[item]).find((item) => entry.id === item.id || entry.id.startsWith(`${item.id}-`));
+    if (card) {
+      selectPracticeCard(card, taskContextForCard(card, 'progress', undefined, `Progress item from ${new Date(entry.completedAt).toLocaleString()}`));
+      setTab('library');
+      return;
+    }
+
+    setSection(entry.section);
+    setTab('library');
+  }
+
+  function continueNextStepPrompt() {
+    if (!nextStepPrompt) return;
+    if (nextStepPrompt.action.type === 'practice' || nextStepPrompt.action.type === 'mock' || nextStepPrompt.action.type === 'review') {
+      startSprintAction(nextStepPrompt.action as SprintAction, 'progress');
+      setNextStepPrompt(null);
+      return;
+    }
   }
 
   function startSprintNextAction() {
@@ -1431,6 +1490,7 @@ export function CoachApp() {
     setMockSubmitted(true);
     setMockStartedAt(null);
     setMockElapsedSnapshot(finalMockElapsed);
+    setNextStepPrompt(buildNextStepPrompt(currentMock.title, nextState));
     const firstMiniMockSubmission = state.miniMockAttempts.every((attempt) => !attempt.submitted);
     setFeedback(firstMiniMockSubmission
       ? 'Your readiness report is unlocked. This is not an official TOEFL score, but it shows your current evidence level.'
@@ -1438,6 +1498,7 @@ export function CoachApp() {
   }
 
   function submitSpeaking(card: PracticeCard) {
+    const now = new Date().toISOString();
     const evaluation = evaluateSpeakingAttempt(card, speakingRating, speakingNotes, Boolean(audioUrl));
     const score = evaluation.score;
     const supported = evaluation.band !== 'ready';
@@ -1454,11 +1515,11 @@ export function CoachApp() {
       reviewQueue: [buildReviewCard(card), ...state.reviewQueue],
       practiceHistory: [
         {
-          id: `${card.id}-${Date.now()}`,
+          id: `${card.id}-${now}`,
           section: 'speaking' as Section,
           subskill: card.subskill,
           score,
-          completedAt: new Date().toISOString(),
+          completedAt: now,
           notes: speakingNotes,
           supported,
         },
@@ -1473,6 +1534,7 @@ export function CoachApp() {
     setState(nextState);
 
     setLastSpeakingEvaluation(evaluation);
+    setNextStepPrompt(buildNextStepPrompt(card.title, nextState));
     const reveal = buildDailyMissionReveal(state, nextState);
     const firstStrategyReveal = !alreadyCompletedStrategy ? buildEvidenceStrategyLayerReveal(card, evaluation, supported) : '';
     setFeedback(firstStrategyReveal || reveal || `${evaluation.summary} Repair: ${evaluation.repairs[0]}`);
@@ -2443,11 +2505,23 @@ export function CoachApp() {
                           {day.tasks.slice(0, 3).map((task) => <p className="copy" key={`${day.day}-${task}`}>- {task}</p>)}
                         </div>
                         <p className={day.status === 'locked' ? 'pathUnlockReason lockedReason' : 'pathUnlockReason'}>
-                          {day.status === 'locked'
-                            ? `Day ${day.day} is locked because the required work before it is incomplete. ${day.unlockReason}`
-                            : day.unlockReason}
+                          {day.unlockReason}
                         </p>
-                        {day.status === 'completed' && <p className="mini">✓ Saved evidence completed this step. No launch required.</p>}
+                        {day.status === 'locked' && day.missingRequiredActions.length > 0 && (
+                          <div className="stack" style={{ gap: 8 }}>
+                            <span className="mini">Missing required work</span>
+                            {day.missingRequiredActions.map((item) => (
+                              <button
+                                key={`${day.day}-${item.day}-${item.label}`}
+                                className="secondary compactButton"
+                                onClick={() => openRequiredAction(item, 'path')}
+                              >
+                                Day {item.day}: {item.label}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                        {day.status === 'completed' && <p className="mini">✓ Submitted evidence completed this step. No launch required.</p>}
                         {day.status === 'available_optional' && <p className="mini">Optional sprint work only — not required for today’s mission.</p>}
                         {showCta && (
                           <button className={day.status === 'current' ? 'cta' : 'secondary'} onClick={() => startPathDayAction(day)}>
@@ -2806,16 +2880,57 @@ export function CoachApp() {
                   <h2>Evidence snapshot</h2>
                   <p className="copy">Current section estimates from strategy questions, practice outcomes, and mock-test evidence.</p>
                   {sectionOrder.map((item) => (
-                    <div key={item} className="stack" style={{ gap: 6 }}>
+                    <button
+                      key={item}
+                      className="sectionCard stack"
+                      style={{ gap: 6, textAlign: 'left' }}
+                      onClick={() => {
+                        setSection(item);
+                        setTab('library');
+                      }}
+                    >
                       <div className="row"><span>{sectionLabels[item]}</span><span className="mini">{formatPercent(state.sectionScores[item])}</span></div>
                       <div className="progressBar"><span style={{ width: formatPercent(state.sectionScores[item]) }} /></div>
-                    </div>
+                    </button>
                   ))}
                 </div>
                 <div className="panel stack">
                   <h2>Current blockers</h2>
                   {blockerList.length ? blockerList.map((item) => <div key={item} className="sectionCard"><p>{item}</p></div>) : <p className="copy">No major blockers flagged yet. Keep pushing consistency.</p>}
                 </div>
+              </div>
+
+              <div className="panel stack">
+                <div className="row">
+                  <div>
+                    <span className="kicker">Required completion</span>
+                    <h2>{missingRequiredActions.length ? 'Missing required repair' : 'Required work clear'}</h2>
+                    <p className="copy">Drafts and autosaves do not unlock the next day. Submit the required work below to complete the current day.</p>
+                  </div>
+                  <span className={missingRequiredActions.length ? 'pill-bad' : 'pill-good'}>
+                    {missingRequiredActions.length ? `${missingRequiredActions.length} missing` : 'complete'}
+                  </span>
+                </div>
+                {missingRequiredActions.length ? (
+                  <div className="grid two">
+                    {missingRequiredActions.map((item) => (
+                      <button
+                        key={`${item.day}-${item.label}`}
+                        className="sectionCard stack"
+                        onClick={() => openRequiredAction(item, 'progress')}
+                      >
+                        <div className="row">
+                          <span className="pill-bad">Required Repair</span>
+                          <span className="mini">Day {item.day}</span>
+                        </div>
+                        <h3>{item.label}</h3>
+                        <p className="copy">{item.reason}</p>
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="copy">All current required repairs have submitted evidence.</p>
+                )}
               </div>
 
               <div className="panel stack">
@@ -2963,14 +3078,14 @@ export function CoachApp() {
                 <div className="panel stack">
                   <h2>Recent practice trend</h2>
                   {state.practiceHistory.length ? state.practiceHistory.slice(0, 6).map((entry) => (
-                    <div key={entry.id} className="sectionCard stack">
+                    <button key={entry.id} className="sectionCard stack" style={{ textAlign: 'left' }} onClick={() => openPracticeHistoryItem(entry)}>
                       <div className="row">
                         <span className="chip">{sectionLabels[entry.section]}</span>
                         <span className={getStatusPill(entry.score)}>{Math.round(entry.score * 100)}%</span>
                       </div>
                       <p className="copy">{entry.subskill} • {new Date(entry.completedAt).toLocaleString()}</p>
                       <p>{entry.notes || 'No note added.'}</p>
-                    </div>
+                    </button>
                   )) : <p className="copy">Complete practice to unlock trend history.</p>}
                 </div>
                 <div className="panel stack">
@@ -3017,6 +3132,24 @@ export function CoachApp() {
                     <button className="ghost compactButton" onClick={() => setBackupImportText('')}>Clear pasted backup</button>
                   </div>
                 </div>
+              </div>
+            </section>
+          )}
+
+          {nextStepPrompt && (
+            <section className="nextStepPrompt sectionCard stack" role="status" aria-live="polite">
+              <div className="row">
+                <div>
+                  <span className="kicker">Next step</span>
+                  <h3>Completed: {nextStepPrompt.completedTitle}</h3>
+                </div>
+                <span className="pill-warn">Continue</span>
+              </div>
+              <p className="copy">Next: {nextStepPrompt.nextTitle}</p>
+              <p>{nextStepPrompt.nextReason}</p>
+              <div className="chips">
+                <button className="cta compactButton" onClick={continueNextStepPrompt}>Continue</button>
+                <button className="ghost compactButton" onClick={() => setNextStepPrompt(null)}>Dismiss</button>
               </div>
             </section>
           )}

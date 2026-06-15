@@ -13,6 +13,14 @@ export interface PathDayView {
   actions: SprintAction[];
   status: UnlockStatus;
   unlockReason: string;
+  missingRequiredActions: MissingRequiredAction[];
+}
+
+export interface MissingRequiredAction {
+  day: number;
+  label: string;
+  reason: string;
+  action: SprintAction;
 }
 
 export interface AccessGate {
@@ -54,12 +62,27 @@ function hasActionEvidence(state: AppState, action: SprintAction | undefined) {
   return false;
 }
 
+function missingRequiredActionsForDay(state: AppState, day: { day: number; actions: SprintAction[] }) {
+  return day.actions
+    .filter((action) => !hasActionEvidence(state, action))
+    .map((action) => ({
+      day: day.day,
+      label: action.label,
+      reason: action.reason,
+      action,
+    }));
+}
+
+function hasDayEvidence(state: AppState, day: { actions: SprintAction[] }) {
+  return day.actions.length > 0 && day.actions.every((action) => hasActionEvidence(state, action));
+}
+
 function completedDayCount(state: AppState) {
   if (!state.diagnosticCompleted) return 0;
   const plan = generateSprintPlan(state);
   let completed = 0;
   for (const day of plan) {
-    if (!hasActionEvidence(state, day.actions[0])) break;
+    if (!hasDayEvidence(state, day)) break;
     completed += 1;
   }
   return completed;
@@ -75,6 +98,15 @@ function optionalSprintCutoffDay(state: AppState) {
 export function canAccessMock(state: AppState): AccessGate {
   if (!state.diagnosticCompleted) {
     return { allowed: false, status: 'locked', reason: 'Finish the strategy diagnostic before using mini mock proof.' };
+  }
+  const firstRequiredDay = generateSprintPlan(state)[0];
+  const missingRequired = firstRequiredDay ? missingRequiredActionsForDay(state, firstRequiredDay) : [];
+  if (missingRequired.length > 0) {
+    return {
+      allowed: false,
+      status: 'locked',
+      reason: `Complete ${missingRequired.length} required ${missingRequired.length === 1 ? 'repair exercise' : 'repair exercises'} before using mini mock proof: ${missingRequired.map((item) => item.label).join(', ')}.`,
+    };
   }
   if (state.practiceHistory.length < 1) {
     return { allowed: false, status: 'locked', reason: 'Complete one repair drill before using mini mock proof.' };
@@ -96,6 +128,8 @@ export function buildPathDayViews(state: AppState): PathDayView[] {
   const plan = generateSprintPlan(state);
   const doneDays = completedDayCount(state);
   const optionalCutoffDay = optionalSprintCutoffDay(state);
+  const blockingDay = state.diagnosticCompleted ? plan.find((day) => !hasDayEvidence(state, day)) : undefined;
+  const blockingMissingActions = blockingDay ? missingRequiredActionsForDay(state, blockingDay) : [];
 
   return plan.map((day, index) => {
     let status: UnlockStatus;
@@ -106,7 +140,7 @@ export function buildPathDayViews(state: AppState): PathDayView[] {
       unlockReason = index === 0 ? 'Finish the strategy diagnostic to open your first repair day.' : 'Locked until the diagnostic is complete.';
     } else if (index < doneDays) {
       status = 'completed';
-      unlockReason = 'Completed from saved practice or mock evidence.';
+      unlockReason = 'Completed from submitted practice or mock evidence.';
     } else if (index === doneDays) {
       status = 'current';
       unlockReason = 'This is your next best day.';
@@ -115,11 +149,19 @@ export function buildPathDayViews(state: AppState): PathDayView[] {
       unlockReason = optionalSprintReason;
     } else {
       status = 'locked';
-      unlockReason = 'Locked until today’s mission is complete';
+      unlockReason = blockingDay && blockingMissingActions.length > 0
+        ? `Day ${day.day} is locked because ${blockingMissingActions.length} required ${blockingMissingActions.length === 1 ? 'repair exercise is' : 'repair exercises are'} incomplete from Day ${blockingDay.day}.`
+        : 'Locked until today’s mission is complete.';
     }
 
-    return { ...day, status, unlockReason };
+    return { ...day, status, unlockReason, missingRequiredActions: status === 'locked' ? blockingMissingActions : missingRequiredActionsForDay(state, day) };
   });
+}
+
+export function getMissingRequiredActions(state: AppState) {
+  if (!state.diagnosticCompleted) return [];
+  const current = buildPathDayViews(state).find((day) => day.status === 'current');
+  return current?.missingRequiredActions ?? [];
 }
 
 export function getNextLockedReason(state: AppState, day: number) {
@@ -144,8 +186,8 @@ export function getTodayMission(state: AppState): TodayMission {
     ? [{ label: 'Finish strategy diagnostic', done: false }]
     : [
         { label: 'Diagnostic baseline saved', done: state.diagnosticCompleted },
-        { label: 'Complete today’s primary drill', done: hasActionEvidence(state, current.actions[0]) },
-        { label: 'Save one review or repair signal', done: state.reviewQueue.length > 0 || state.errorLog.length > 0 || completedMiniMocks(state) > 0 },
+        ...current.actions.map((action) => ({ label: `Submit: ${action.label}`, done: hasActionEvidence(state, action) })),
+        { label: 'Keep one review or repair signal visible', done: state.reviewQueue.length > 0 || state.errorLog.length > 0 || completedMiniMocks(state) > 0 },
       ];
 
   return {
