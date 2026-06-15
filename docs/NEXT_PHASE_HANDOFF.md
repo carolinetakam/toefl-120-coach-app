@@ -1,6 +1,6 @@
 # Next Phase Handoff: Beta Clearance to Official Launch
 
-Last updated: 2026-06-15 23:59 KST
+Last updated: 2026-06-16 00:07 KST
 Project: TOEFL 120 Coach  
 Repo: `/Users/carolinetakam/Documents/apps/toefl-120-coach-app-only`  
 Production: `https://score120coach.com`
@@ -9,7 +9,7 @@ Production: `https://score120coach.com`
 
 The codebase is a working beta candidate. Automated local gates pass and production public routes are live. The next phase is **not more feature building first**. The next phase is clearing the manual production trust gates, inviting a tiny beta cohort, then hardening only what real beta use exposes.
 
-**Current priority blocker:** the signed-in production sync smoke failed on 2026-06-15. Root cause was found in production Convex logs: `coach:saveAppState` was called but rejected by argument validation because the deployed validator did not accept `state.diagnosticFormId` and `state.speakingAttempts[].hasAudioEvidence`. Convex production was redeployed with the current validator and a backend-only save/restore shape check passed. A later auth callback fix in `99e2b0b` removed forced Clerk redirects from `/sign-in` and `/sign-up`; production static/HTTP smoke passed. The next owner must rerun the full real-account same-account and different-account browser matrix.
+**Current priority blocker:** the signed-in production sync smoke failed on 2026-06-15. Root cause was found in production Convex logs: `coach:saveAppState` was called but rejected by argument validation because the deployed validator did not accept `state.diagnosticFormId` and `state.speakingAttempts[].hasAudioEvidence`. Convex production was redeployed with the current validator and a backend-only save/restore shape check passed. Later auth/render fixes in `99e2b0b` and `7e7aef5` addressed forced Clerk redirects and a completed-path restore crash; production static/HTTP smoke passed. The next owner must rerun the full real-account same-account and different-account browser matrix.
 
 Addendum 2026-06-15 14:32 KST: local non-structural recording UX fixes are implemented and verified in `docs/implementation-reports/2026-06-15-recording-context-ux-fix.md`. These do not clear beta; production signed-in sync, backup/reset/import, and support email checks remain the launch blockers.
 
@@ -40,6 +40,8 @@ Addendum 2026-06-15 23:35 KST: after the user reported a `/sign-in` -> home -> `
 Addendum 2026-06-15 23:50 KST: after the user reported that private browsing loads but post-login says the page could not load, recovery hardening was added in `docs/implementation-reports/2026-06-15-post-login-load-recovery.md`. Signed-in cloud restore now degrades to `Sync offline` local practice if cloud state cannot be sanitized, and route/global error boundaries show retry/back/support actions for app-shell crashes. Commit `52f2e4f` was pushed to `main`; automated gates plus local and production HTTP smoke pass. Real-account production retest remains required.
 
 Addendum 2026-06-15 23:59 KST: after comparing the sample-answer commits against the later auth commits, no sample-answer/auth coupling was found. The smallest suspicious auth-route fix was shipped in `docs/implementation-reports/2026-06-15-clerk-callback-redirect-fix.md`: `/sign-in` and `/sign-up` no longer pass `forceRedirectUrl="/"` to Clerk, so path-routed Clerk callback/continue URLs are not overridden after login. Commit `99e2b0b` was pushed to `main`; full automated gates and production static/HTTP smoke pass. Real-account production login and Convex restore remain unverified.
+
+Addendum 2026-06-16 00:07 KST: after the user shared a screenshot of the route-level recovery page after login, the likely failure point was narrowed to render-time restored-state helpers rather than the Clerk page itself. `docs/implementation-reports/2026-06-16-completed-path-restore-crash.md` records the fix: `getTodayMission()` no longer throws when a restored learner has completed all generated path days; it returns `Path complete: final review`. Commit `7e7aef5` was pushed to `main`; focused/full automated gates, build, local route smoke, production readiness, and public-route smoke pass. Real-account private-browser login still must be retested.
 
 ## Current launch decision
 
