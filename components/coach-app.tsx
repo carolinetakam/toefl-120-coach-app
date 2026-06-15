@@ -28,6 +28,19 @@ import { sanitizeAppState } from '@/lib/validation';
 import { buildFounderLaunchGate, defaultLaunchSmokeChecks, launchSmokeCheckDefinitions, type LaunchReadinessAudit, type LaunchSmokeChecks, type LaunchSmokeCheckKey } from '@/lib/launch-readiness';
 
 type TabKey = 'today' | 'path' | 'review' | 'progress' | 'library';
+type AuthStatus = 'loading' | 'authenticated' | 'guest' | 'unauthenticated';
+
+type AuthState = {
+  status: AuthStatus;
+  user: { id: string } | null;
+  isGuest: boolean;
+};
+
+type GuestSession = {
+  id: string;
+  createdAt: string;
+  expiresAt?: string;
+};
 
 const tabs: Array<{ key: TabKey; label: string }> = [
   { key: 'today', label: 'Today' },
@@ -48,6 +61,7 @@ function isStrategyLayerCard(cardId: string) {
 const speakingChecks = ['Clear main idea', 'Source detail included', 'Finished cleanly'];
 const diagnosticStartedAtKey = 'toefl-120-coach-diagnostic-started-at';
 const launchSmokeChecksKey = 'toefl-120-coach-launch-smoke-checks';
+const guestSessionKey = 'toefl-120-coach-guest-session';
 const speakingRecordingLimitSeconds = 60;
 
 const pathStatusLabels: Record<UnlockStatus, string> = {
@@ -235,7 +249,36 @@ function clearLocalProgressForAccountExit() {
   setLocalSyncOwner(null);
   if (typeof window !== 'undefined') {
     window.localStorage.removeItem(diagnosticStartedAtKey);
+    window.localStorage.removeItem(guestSessionKey);
+    Object.keys(window.sessionStorage)
+      .filter((key) => key.startsWith('toefl-120-coach'))
+      .forEach((key) => window.sessionStorage.removeItem(key));
   }
+}
+
+function getGuestSession(): GuestSession | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(guestSessionKey) ?? 'null') as GuestSession | null;
+    if (!parsed?.id || !parsed.createdAt) return null;
+    if (parsed.expiresAt && new Date(parsed.expiresAt).getTime() <= Date.now()) {
+      window.localStorage.removeItem(guestSessionKey);
+      return null;
+    }
+    return parsed;
+  } catch {
+    window.localStorage.removeItem(guestSessionKey);
+    return null;
+  }
+}
+
+function createGuestSession(): GuestSession {
+  return {
+    id: typeof window !== 'undefined' && typeof window.crypto?.randomUUID === 'function'
+      ? window.crypto.randomUUID()
+      : `guest-${Date.now()}`,
+    createdAt: new Date().toISOString(),
+  };
 }
 
 function loadLaunchSmokeChecks(): LaunchSmokeChecks {
@@ -255,6 +298,9 @@ export function CoachApp() {
   const [state, setState] = useState<AppState>(initialState);
   const [ready, setReady] = useState(false);
   const [syncReady, setSyncReady] = useState(false);
+  const [guestSession, setGuestSession] = useState<GuestSession | null>(null);
+  const [signedOutLocally, setSignedOutLocally] = useState(false);
+  const [authCheckTimedOut, setAuthCheckTimedOut] = useState(false);
   const [tab, setTab] = useState<TabKey>('today');
   const [section, setSection] = useState<Section>('reading');
   const [selectedCardId, setSelectedCardId] = useState<Record<Section, string>>({
@@ -308,10 +354,17 @@ export function CoachApp() {
   const chunksRef = useRef<Blob[]>([]);
   const localStateRef = useRef<AppState>(initialState);
   const authModeRef = useRef<string | undefined>(undefined);
+  const previousAuthStatusRef = useRef<AuthStatus>('loading');
   const { isLoaded: authLoaded, isSignedIn, userId } = useAuth();
-  const { openSignIn, signOut } = useClerk();
+  const { openSignIn, openSignUp, signOut } = useClerk();
   const authMode = authLoaded ? (isSignedIn ? `signed-in:${userId ?? 'unknown'}` : 'signed-out') : 'loading';
-  const convexState = useQuery(api.coach.getAppState, authLoaded && isSignedIn ? {} : 'skip');
+  const authState: AuthState = useMemo(() => {
+    if (!ready || (!authLoaded && !authCheckTimedOut)) return { status: 'loading', user: null, isGuest: false };
+    if (!signedOutLocally && isSignedIn && userId) return { status: 'authenticated', user: { id: userId }, isGuest: false };
+    if (guestSession) return { status: 'guest', user: null, isGuest: true };
+    return { status: 'unauthenticated', user: null, isGuest: false };
+  }, [authCheckTimedOut, authLoaded, guestSession, isSignedIn, ready, signedOutLocally, userId]);
+  const convexState = useQuery(api.coach.getAppState, authState.status === 'authenticated' ? {} : 'skip');
   const saveConvexState = useMutation(api.coach.saveAppState);
   const deleteConvexData = useMutation(api.coach.deleteMyData);
 
@@ -324,12 +377,19 @@ export function CoachApp() {
   }, [authLoaded, isSignedIn, userId]);
 
   useEffect(() => {
-    const localState = loadState();
-    localStateRef.current = localState;
-    setState(localState);
+    setGuestSession(getGuestSession());
     setLaunchSmokeChecks(loadLaunchSmokeChecks());
     setReady(true);
   }, []);
+
+  useEffect(() => {
+    if (authLoaded) {
+      setAuthCheckTimedOut(false);
+      return;
+    }
+    const timeout = window.setTimeout(() => setAuthCheckTimedOut(true), 2500);
+    return () => window.clearTimeout(timeout);
+  }, [authLoaded]);
 
   useEffect(() => {
     let cancelled = false;
@@ -358,17 +418,34 @@ export function CoachApp() {
 
   useEffect(() => {
     if (!ready || !authLoaded) return;
-    if (authModeRef.current === authMode) return;
-    authModeRef.current = authMode;
-    localStateRef.current = loadState();
+    const sessionMode = `${authMode}:${authState.status}:${guestSession?.id ?? 'none'}`;
+    if (authModeRef.current === sessionMode) return;
+    authModeRef.current = sessionMode;
+    const shouldLoadLocalState = authState.status === 'authenticated' || authState.status === 'guest';
+    const localState = shouldLoadLocalState ? loadState() : initialState;
+    localStateRef.current = localState;
+    setState(localState);
     setSyncReady(false);
-  }, [authLoaded, authMode, ready]);
+  }, [authLoaded, authMode, authState.status, guestSession?.id, ready]);
+
+  useEffect(() => {
+    const previousStatus = previousAuthStatusRef.current;
+    previousAuthStatusRef.current = authState.status;
+    if (previousStatus !== 'authenticated' || (authState.status !== 'loading' && authState.status !== 'unauthenticated')) return;
+    clearLocalProgressForAccountExit();
+    resetPersonalizedUiState();
+    localStateRef.current = initialState;
+    setGuestSession(null);
+    setState(initialState);
+    setSyncReady(false);
+    setSaveStatus('Local');
+  }, [authState.status]);
 
   useEffect(() => {
     if (!ready || !authLoaded || syncReady) return;
     const localState = localStateRef.current;
 
-    if (isSignedIn) {
+    if (authState.status === 'authenticated') {
       if (convexState === undefined) return;
       console.log('CLOUD_RESTORE_START');
       const remoteState = convexState ? sanitizeAppState(convexState.state) : null;
@@ -420,17 +497,23 @@ export function CoachApp() {
       return;
     }
 
+    if (authState.status === 'guest') {
+      setSaveStatus('Local');
+      setSyncReady(true);
+      return;
+    }
+
     setSaveStatus('Local');
-    setSyncReady(true);
-  }, [authLoaded, convexState, isSignedIn, ready, saveConvexState, syncReady, userId]);
+  }, [authLoaded, authState.status, convexState, ready, saveConvexState, syncReady, userId]);
 
   useEffect(() => {
     if (!ready || !syncReady) return;
+    if (authState.status === 'unauthenticated' || authState.status === 'loading') return;
     saveState(state);
     setSaveStatus('Syncing');
     const timeout = window.setTimeout(() => {
       const cleanState = toPersistableState(state);
-      if (!isSignedIn) {
+      if (authState.status !== 'authenticated') {
         setSaveStatus('Local');
         return;
       }
@@ -449,7 +532,7 @@ export function CoachApp() {
     }, 500);
 
     return () => window.clearTimeout(timeout);
-  }, [isSignedIn, ready, saveConvexState, state, syncReady, userId]);
+  }, [authState.status, ready, saveConvexState, state, syncReady, userId]);
 
   const dailyPlan = useMemo(() => generateDailyPlan(state), [state]);
   const todaySprint = useMemo(() => getTodaySprintDay(state), [state]);
@@ -692,14 +775,68 @@ export function CoachApp() {
   }
 
   function openAccountSignIn() {
+    setSignedOutLocally(false);
     openSignIn();
   }
 
+  function openAccountSignUp() {
+    setSignedOutLocally(false);
+    openSignUp();
+  }
+
+  function resetPersonalizedUiState() {
+    submittedChoicesRef.current = {};
+    restoredMockSelectionRef.current = false;
+    mockAutosaveReadyRef.current = false;
+    setSubmittedChoices({});
+    setDiagnosticIndex(0);
+    setDiagnosticChoice(null);
+    setCurrentMockId(mockTests[0].id);
+    setMockAnswers({});
+    setMockNotes('');
+    setMockSpeakingNotes('');
+    setMockWriting('');
+    setMockRubric({});
+    setMockSubmitted(false);
+    setDiagnosticStartedAt(null);
+    setRecordingStartedAt(null);
+    setTab('today');
+  }
+
+  function continueAsGuest() {
+    const existingGuestSession = getGuestSession();
+    if (!existingGuestSession) {
+      resetState();
+      setLocalSyncOwner(null);
+      if (typeof window !== 'undefined') {
+        window.localStorage.removeItem(diagnosticStartedAtKey);
+      }
+    }
+    const nextGuestSession = existingGuestSession ?? createGuestSession();
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(guestSessionKey, JSON.stringify(nextGuestSession));
+    }
+    setSignedOutLocally(false);
+    setGuestSession(nextGuestSession);
+    const localState = loadState();
+    localStateRef.current = localState;
+    setState(localState);
+    resetPersonalizedUiState();
+    setSyncReady(false);
+    setSaveStatus('Local');
+    setFeedback('Guest mode started. Progress stays on this device until you log in.');
+  }
+
   async function handleSignOut() {
+    setSignedOutLocally(true);
+    setGuestSession(null);
     clearLocalProgressForAccountExit();
+    resetPersonalizedUiState();
+    localStateRef.current = initialState;
     setState(initialState);
     setSyncReady(false);
     setSaveStatus('Local');
+    setFeedback('Signed out. Log in to restore saved progress, or continue as guest.');
     await signOut({ redirectUrl: '/' });
   }
 
@@ -1305,11 +1442,82 @@ export function CoachApp() {
   const relatedPracticeCards = orderedPracticeCards
     .filter((card) => card.id !== currentCard.id && card.id !== firstRecommendedCard.id)
     .slice(0, 3);
-  const learnerName = state.profile.name.trim() || 'Beta learner';
-  const dataMode = authLoaded && isSignedIn ? 'Cloud sync' : authLoaded ? 'Local guest' : 'Checking account';
-  const dataModeClass = authLoaded && isSignedIn ? 'cloud' : authLoaded ? 'local' : 'loading';
+  const learnerName = authState.status === 'unauthenticated'
+    ? 'Signed out'
+    : authState.status === 'guest'
+      ? 'Guest learner'
+      : state.profile.name.trim() || 'Beta learner';
+  const dataMode = authState.status === 'authenticated'
+    ? 'Cloud sync'
+    : authState.status === 'guest'
+      ? 'Guest mode'
+      : authState.status === 'unauthenticated'
+        ? 'Signed out'
+        : 'Checking account';
+  const dataModeClass = authState.status === 'authenticated'
+    ? 'cloud'
+    : authState.status === 'guest'
+      ? 'local'
+      : authState.status === 'unauthenticated'
+        ? 'signedOut'
+        : 'loading';
   const saveStatusClass = saveStatus.toLowerCase();
   const workflow = getFirstUserLoopSteps(state);
+  const shouldBlockPersonalizedContent = authState.status === 'loading' || authState.status === 'unauthenticated';
+  const authControls = (
+    <div className="chips authControls">
+      {authState.status === 'loading' && <span className="chip">Checking account</span>}
+      {authState.status === 'authenticated' && (
+        <>
+          <UserButton afterSignOutUrl="/" />
+          <button className="secondary compactButton" onClick={handleSignOut}>Logout</button>
+        </>
+      )}
+      {authState.status === 'guest' && (
+        <>
+          <span className="pill-warn">Guest</span>
+          <button className="secondary compactButton" onClick={openAccountSignIn}>Log In</button>
+          <button className="cta compactButton" onClick={openAccountSignUp}>Create Account</button>
+        </>
+      )}
+      {authState.status === 'unauthenticated' && (
+        <>
+          <button className="secondary compactButton" onClick={openAccountSignIn}>Log In</button>
+          <button className="ghost compactButton" onClick={continueAsGuest}>Continue as Guest</button>
+          <button className="cta compactButton" onClick={openAccountSignUp}>Create Account</button>
+        </>
+      )}
+    </div>
+  );
+  const signedOutPrompt = (
+    <section className="panel stack authPrompt" aria-label="Signed out prompt">
+      <div className="stack">
+        <span className="kicker">{authState.status === 'loading' ? 'Checking account' : 'Signed out'}</span>
+        <h2>{authState.status === 'loading' ? 'Checking your account state.' : 'You are currently signed out.'}</h2>
+        <p className="copy">
+          {authState.status === 'loading'
+            ? 'Personalized progress is hidden until account state is confirmed.'
+            : 'Log in to continue your saved TOEFL path, or continue as guest for a local preview.'}
+        </p>
+      </div>
+      {authState.status === 'unauthenticated' && (
+        <div className="chips centerActions">
+          <button className="cta" onClick={openAccountSignIn}>Log In</button>
+          <button className="secondary" onClick={continueAsGuest}>Continue as Guest</button>
+          <button className="ghost" onClick={openAccountSignUp}>Create Account</button>
+        </div>
+      )}
+    </section>
+  );
+  const guestBanner = authState.status === 'guest' ? (
+    <section className="sectionCard row guestBanner" aria-label="Guest mode">
+      <p className="copy">Guest mode: your progress stays on this device. Log in to save your TOEFL path across browsers.</p>
+      <div className="chips">
+        <button className="secondary compactButton" onClick={openAccountSignIn}>Log In</button>
+        <button className="cta compactButton" onClick={openAccountSignUp}>Create Account</button>
+      </div>
+    </section>
+  ) : null;
   const personalProofGatePanel = (
     <div className="panel stack">
       <div className="row">
@@ -1365,7 +1573,7 @@ export function CoachApp() {
             <span className={`chip saveChip ${saveStatusClass}`}>Save {saveStatus}</span>
           </div>
         </div>
-        {state.diagnosticCompleted && (
+        {!shouldBlockPersonalizedContent && state.diagnosticCompleted && (
           <nav className="tabs" aria-label="Primary">
             {tabs.map((item) => (
               <button key={item.key} className={`tab ${tab === item.key ? 'active' : ''}`} aria-current={tab === item.key ? 'page' : undefined} onClick={() => setTab(item.key)}>
@@ -1376,16 +1584,12 @@ export function CoachApp() {
         )}
         <div className="sidebarPanel stack">
           <span className="mini">Progress controls</span>
-          <div className="chips">
-            {!isSignedIn && <button className="secondary compactButton" onClick={openAccountSignIn}>Sign in</button>}
-            {authLoaded && isSignedIn && (
-              <>
-                <UserButton afterSignOutUrl="/" />
-                <button className="secondary compactButton" onClick={handleSignOut}>Sign out / switch</button>
-              </>
-            )}
-            <button className="ghost compactButton" onClick={exportProgress}>Export</button>
-          </div>
+          {authControls}
+          {!shouldBlockPersonalizedContent && (
+            <div className="chips">
+              <button className="ghost compactButton" onClick={exportProgress}>Export</button>
+            </div>
+          )}
         </div>
       </aside>
 
@@ -1398,22 +1602,29 @@ export function CoachApp() {
               <p className="copy">Profile, diagnostic, review, exact next drill, and saved progress stay visible as one learner loop.</p>
             </div>
             <div className="chips">
-              <span className="pill-good">{sprintMode}</span>
-              <span className="chip">Track {state.track}</span>
-              <span className="chip">Target {state.profile.targetScore}</span>
-              <span className="chip">XP {state.xp}</span>
-              <span className="chip">Streak {state.streak} day</span>
+              {authControls}
+              {!shouldBlockPersonalizedContent && (
+                <>
+                  <span className="pill-good">{sprintMode}</span>
+                  <span className="chip">Track {state.track}</span>
+                  <span className="chip">Target {state.profile.targetScore}</span>
+                  <span className="chip">XP {state.xp}</span>
+                  <span className="chip">Streak {state.streak} day</span>
+                </>
+              )}
             </div>
           </div>
-          <div className="workflowLane" aria-label="First user-ready loop">
-            {workflow.map((step) => (
-              <div className={`workflowStep ${step.status.toLowerCase()}`} key={step.label}>
-                <span>{step.label}</span>
-                <strong>{step.status}</strong>
-              </div>
-            ))}
-          </div>
-          {tab !== 'today' && (
+          {!shouldBlockPersonalizedContent && (
+            <div className="workflowLane" aria-label="First user-ready loop">
+              {workflow.map((step) => (
+                <div className={`workflowStep ${step.status.toLowerCase()}`} key={step.label}>
+                  <span>{step.label}</span>
+                  <strong>{step.status}</strong>
+                </div>
+              ))}
+            </div>
+          )}
+          {!shouldBlockPersonalizedContent && tab !== 'today' && (
             <div className="grid four">
               {sectionOrder.map((item) => (
                 <div className="stat" key={item}>
@@ -1426,7 +1637,12 @@ export function CoachApp() {
           )}
         </section>
 
-      {!state.onboarded ? (
+      {shouldBlockPersonalizedContent ? (
+        signedOutPrompt
+      ) : (
+        <>
+          {guestBanner}
+          {!state.onboarded ? (
         <section className="panel stack">
           <div>
             <h2>1. Onboarding</h2>
@@ -2551,6 +2767,8 @@ export function CoachApp() {
           )}
 
           {feedback && <section className="toast" role="status" aria-live="polite"><p>{feedback}</p></section>}
+        </>
+      )}
         </>
       )}
       <footer className="legalLinks" aria-label="Legal and support">

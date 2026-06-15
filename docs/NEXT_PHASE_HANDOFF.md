@@ -62,6 +62,46 @@ Use `docs/implementation-reports/2026-06-15-production-sync-validator-fix.md` as
 
 Keep beta blocked if any browser still shows onboarding for User A after `Save Synced`, if `Save Offline` appears, or if User B sees User A data.
 
+### Addendum: Logout, Login State, and Guest Access Fix
+
+Core constraint: do not change the current app structure. Keep current pages, layout, and navigation; only improve authentication state behavior and button placement inside the existing UI.
+
+Current bug:
+
+- After logout, the app can visually remain in a logged-in or personalized-looking state.
+- Refreshing after logout must not restore personalized UI from local cache.
+- The signed-out state must clearly offer `Log In`, `Continue as Guest`, and `Create Account`.
+
+Expected behavior:
+
+1. Logout clears Clerk session through Clerk sign-out and clears TOEFL user-specific local progress/cache.
+2. The app refreshes auth state and immediately renders signed-out UI.
+3. Signed-out UI appears in the existing header/profile action area and existing main content area.
+4. Guest mode is explicit, labeled, and local-only.
+5. Guest users may preview/practice locally but must not be mistaken for authenticated learners with synced progress.
+6. Protected or personalized content must not show stale signed-in data after logout.
+
+Auth state model:
+
+```ts
+type AuthStatus = 'loading' | 'authenticated' | 'guest' | 'unauthenticated';
+
+type AuthState = {
+  status: AuthStatus;
+  user: User | null;
+  isGuest: boolean;
+};
+```
+
+Acceptance:
+
+- Clicking `Logout` immediately changes UI to signed-out state.
+- Refreshing after logout still shows signed-out UI.
+- Header/profile area shows `Log In` and `Continue as Guest` when logged out.
+- Guest mode shows a clear guest badge/banner and login/create-account options.
+- Signed-out users see a login/guest prompt instead of stale dashboard/path/progress data.
+- Public prompt/library content remains available through explicit guest mode.
+
 ### Pass criteria
 
 - Production readiness API remains `ready:true`.

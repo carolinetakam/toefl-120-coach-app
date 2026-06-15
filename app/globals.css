@@ -231,6 +231,11 @@ audio {
   box-shadow: 0 0 0 4px rgba(155, 162, 169, 0.22);
 }
 
+.statusDot.signedOut {
+  background: var(--danger);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--danger), transparent 84%);
+}
+
 .hero, .panel {
   background: var(--surface);
   border: 1px solid rgba(255, 255, 255, 0.78);
@@ -489,6 +494,26 @@ p.copy, .muted {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
+}
+
+.authControls {
+  align-items: center;
+}
+
+.centerActions {
+  justify-content: center;
+}
+
+.authPrompt {
+  max-width: 720px;
+  margin-inline: auto;
+  text-align: center;
+  align-items: center;
+}
+
+.guestBanner {
+  border-color: color-mix(in srgb, var(--warning), white 64%);
+  background: color-mix(in srgb, var(--warning), white 93%);
 }
 
 .chip {
