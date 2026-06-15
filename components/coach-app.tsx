@@ -428,6 +428,7 @@ export function CoachApp() {
   const [speakingNotes, setSpeakingNotes] = useState('');
   const [feedback, setFeedback] = useState('');
   const [saveStatus, setSaveStatus] = useState<'Local' | 'Syncing' | 'Synced' | 'Offline'>('Local');
+  const [syncRestoreError, setSyncRestoreError] = useState('');
   const [launchAudit, setLaunchAudit] = useState<LaunchReadinessAudit | null>(null);
   const [launchAuditStatus, setLaunchAuditStatus] = useState<'loading' | 'loaded' | 'error'>('loading');
   const [launchSmokeChecks, setLaunchSmokeChecks] = useState<LaunchSmokeChecks>(defaultLaunchSmokeChecks);
@@ -598,11 +599,22 @@ export function CoachApp() {
     if (authState.status === 'loading') return;
     if (authState.status === 'authenticated' && !authLoaded) return;
     const localState = localStateRef.current;
+    setSyncRestoreError('');
 
     if (authState.status === 'authenticated') {
       if (convexState === undefined) return;
       console.log('CLOUD_RESTORE_START');
-      const remoteState = convexState ? sanitizeAppState(convexState.state) : null;
+      let remoteState: AppState | null = null;
+      try {
+        remoteState = convexState ? sanitizeAppState(convexState.state) : null;
+      } catch (error) {
+        console.log('CLOUD_RESTORE_SANITIZE_FAILED', error);
+        setSyncRestoreError('Cloud progress could not be restored in this browser session. You can keep practicing locally while sync is offline.');
+        setFeedback('Cloud progress could not be restored. Local practice is still available.');
+        setSaveStatus('Offline');
+        setSyncReady(true);
+        return;
+      }
       console.log('CLOUD_RESTORE_RESULT', {
         hasState: Boolean(remoteState),
       });
@@ -1905,6 +1917,18 @@ export function CoachApp() {
       <div className="chips">
         <Link className="secondary compactButton" href="/sign-in">Log In</Link>
         <Link className="cta compactButton" href="/sign-up">Create Account</Link>
+      </div>
+    </section>
+  ) : null;
+  const syncRecoveryBanner = syncRestoreError ? (
+    <section className="sectionCard row syncRecoveryBanner" role="status" aria-live="polite">
+      <div>
+        <span className="pill-bad">Sync offline</span>
+        <p className="copy">{syncRestoreError}</p>
+      </div>
+      <div className="chips">
+        <button className="secondary compactButton" onClick={() => window.location.reload()}>Retry</button>
+        <Link className="ghost compactButton" href="/support">Support</Link>
       </div>
     </section>
   ) : null;
@@ -3608,6 +3632,7 @@ export function CoachApp() {
           )}
 
           {feedback && <section className="toast" role="status" aria-live="polite"><p>{feedback}</p></section>}
+          {syncRecoveryBanner}
         </>
       )}
         </>

@@ -618,6 +618,17 @@ p.copy, .muted {
   background: color-mix(in srgb, var(--warning), white 93%);
 }
 
+.syncRecoveryBanner {
+  border-color: color-mix(in srgb, var(--danger), white 66%);
+  background: color-mix(in srgb, var(--danger), white 94%);
+}
+
+.recoveryShell {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+}
+
 .chip {
   display: inline-flex;
   align-items: center;
