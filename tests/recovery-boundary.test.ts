@@ -19,4 +19,12 @@ describe('root app recovery boundary', () => {
     expect(boundarySource).not.toContain('deleteConvexData');
     expect(coachAppSource).toContain('Safe mode started. Cloud progress was not deleted');
   });
+
+  it('clears local guest recovery state after Clerk signs in', () => {
+    expect(coachAppSource).toContain("if (isSignedIn && userId && (!signedOutLocally || guestSession || recoveryMode)) return { status: 'authenticated'");
+    expect(coachAppSource).toContain('window.localStorage.removeItem(guestSessionKey)');
+    expect(coachAppSource).toContain('window.sessionStorage.removeItem(recoveryModeKey)');
+    expect(coachAppSource).toContain("setFeedback('Signed in. Restoring cloud progress now.')");
+    expect(coachAppSource).toContain("authState.status === 'authenticated' && (");
+  });
 });

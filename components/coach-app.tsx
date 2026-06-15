@@ -488,8 +488,8 @@ export function CoachApp() {
   const authMode = authLoaded ? (isSignedIn ? `signed-in:${userId ?? 'unknown'}` : 'signed-out') : 'loading';
   const authState: AuthState = useMemo(() => {
     if (!ready || (!authLoaded && !authCheckTimedOut)) return { status: 'loading', user: null, isGuest: false };
+    if (isSignedIn && userId && (!signedOutLocally || guestSession || recoveryMode)) return { status: 'authenticated', user: { id: userId }, isGuest: false };
     if (recoveryMode && guestSession) return { status: 'guest', user: null, isGuest: true };
-    if (!signedOutLocally && isSignedIn && userId) return { status: 'authenticated', user: { id: userId }, isGuest: false };
     if (guestSession) return { status: 'guest', user: null, isGuest: true };
     return { status: 'unauthenticated', user: null, isGuest: false };
   }, [authCheckTimedOut, authLoaded, guestSession, isSignedIn, ready, recoveryMode, signedOutLocally, userId]);
@@ -552,6 +552,22 @@ export function CoachApp() {
     setLaunchSmokeChecks(loadLaunchSmokeChecks());
     setReady(true);
   }, []);
+
+  useEffect(() => {
+    if (!authLoaded || !isSignedIn || !userId) return;
+    if (!guestSession && !signedOutLocally && !recoveryMode) return;
+
+    if (typeof window !== 'undefined') {
+      window.localStorage.removeItem(guestSessionKey);
+      window.sessionStorage.removeItem(recoveryModeKey);
+    }
+    setGuestSession(null);
+    setSignedOutLocally(false);
+    setRecoveryMode(false);
+    setSyncReady(false);
+    setSaveStatus('Syncing');
+    setFeedback('Signed in. Restoring cloud progress now.');
+  }, [authLoaded, guestSession, isSignedIn, recoveryMode, signedOutLocally, userId]);
 
   useEffect(() => {
     if (authLoaded) {
@@ -2129,13 +2145,13 @@ export function CoachApp() {
             <h2>1. Onboarding</h2>
             <p className="copy">Set your target so the plan can adapt to urgency, confidence, and available minutes. Beta learners should sign in before serious practice so progress syncs across devices.</p>
           </div>
-          {!isSignedIn && (
+          {authState.status !== 'authenticated' && (
             <div className="sectionCard row">
               <p className="copy">Guest mode is for preview only. Beta users should sign in with the same email they use for support, sync, deletion, and scoring questions.</p>
               <Link className="secondary" href="/sign-in">Create beta account / Sign in</Link>
             </div>
           )}
-          {authLoaded && isSignedIn && (
+          {authState.status === 'authenticated' && (
             <div className="sectionCard row">
               <p className="copy">Signed in. Your onboarding and practice progress will sync after each save.</p>
               <div className="chips">

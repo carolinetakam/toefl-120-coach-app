@@ -1,6 +1,6 @@
 # Next Phase Handoff: Beta Clearance to Official Launch
 
-Last updated: 2026-06-16 00:24 KST
+Last updated: 2026-06-16 00:31 KST
 Project: TOEFL 120 Coach  
 Repo: `/Users/carolinetakam/Documents/apps/toefl-120-coach-app-only`  
 Production: `https://score120coach.com`
@@ -45,6 +45,8 @@ Addendum 2026-06-16 00:07 KST: after the user shared a screenshot of the route-l
 
 Addendum 2026-06-16 00:24 KST: after the user reported that simply opening `score120coach.com` still showed the route recovery page, `docs/implementation-reports/2026-06-16-root-recovery-boundary.md` added `CoachAppBoundary` around the root app. On first root render crash it clears only TOEFL browser-local state, sets safe recovery mode, reloads `/`, and boots a local guest session without deleting Convex/cloud data. Commit `2fcfe83` was pushed to `main`; GitHub push did not refresh the static root promptly, so `npx vercel --prod --yes` force-deployed and aliased `score120coach.com`. Live root HTML now references `CoachAppBoundary`; production readiness and public routes pass. User-browser retest still required.
 
+Addendum 2026-06-16 00:31 KST: after the user showed a mixed post-login state where Clerk was signed in but the sidebar still showed `Guest learner`, `Guest mode`, and `Save Local`, `docs/implementation-reports/2026-06-16-signed-in-auth-state-priority.md` records a narrow local fix. `components/coach-app.tsx` now clears stale guest/safe-recovery/local-signout state when Clerk reports a signed-in user and resets sync readiness so Convex restore can run. Focused regression tests, focused lint, `next build --webpack`, and `tsc --noEmit` after build regeneration pass. Deploy and real-account production retest remain required.
+
 ## Current launch decision
 
 - **Founder/internal smoke:** allowed now.
@@ -69,20 +71,21 @@ Prove that real users can safely sign in, complete the first TOEFL loop, recover
 
 1. Open `https://score120coach.com` in a real browser.
 2. Open `/sign-in` from the `Log In` button, then sign in with a real beta test account.
-3. Complete profile setup.
-4. Complete diagnostic.
-5. Complete one timed mini mock.
-6. Confirm review/readiness/next drill appear.
-7. Confirm Today coaching cards appear after diagnostic/mini mock evidence and Best Next Action opens real work.
-8. Reload production and verify signed-in progress restores from Convex.
-9. Export/show backup JSON.
-10. Reset progress.
-11. Paste/import backup.
-12. Confirm profile, diagnostic, mini mock, coaching cards, and readiness state restore.
-13. Send a real authenticated email to `support@score120coach.com`.
-14. Confirm the email arrives in the monitored inbox.
-15. Record results in a new `docs/implementation-reports/YYYY-MM-DD-production-smoke.md` file.
-16. Update `docs/PROJECT_STATUS.md`.
+3. Confirm the signed-in sidebar shows authenticated/cloud mode, not `Guest learner`, `Guest mode`, or `Save Local`.
+4. Complete profile setup.
+5. Complete diagnostic.
+6. Complete one timed mini mock.
+7. Confirm review/readiness/next drill appear.
+8. Confirm Today coaching cards appear after diagnostic/mini mock evidence and Best Next Action opens real work.
+9. Reload production and verify signed-in progress restores from Convex.
+10. Export/show backup JSON.
+11. Reset progress.
+12. Paste/import backup.
+13. Confirm profile, diagnostic, mini mock, coaching cards, and readiness state restore.
+14. Send a real authenticated email to `support@score120coach.com`.
+15. Confirm the email arrives in the monitored inbox.
+16. Record results in a new `docs/implementation-reports/YYYY-MM-DD-production-smoke.md` file.
+17. Update `docs/PROJECT_STATUS.md`.
 
 ### Sync-specific retest before beta clearance
 
