@@ -1,6 +1,6 @@
 # Next Phase Handoff: Beta Clearance to Official Launch
 
-Last updated: 2026-06-15 22:22 KST
+Last updated: 2026-06-15 22:30 KST
 Project: TOEFL 120 Coach  
 Repo: `/Users/carolinetakam/Documents/apps/toefl-120-coach-app-only`  
 Production: `https://score120coach.com`
@@ -26,6 +26,8 @@ Addendum 2026-06-15 21:32 KST: Coaching Intelligence Layer v1 is implemented loc
 Addendum 2026-06-15 22:11 KST: Model Answer & Compare Workflow v1 is implemented locally in `docs/implementation-reports/2026-06-15-model-answer-compare-workflow.md`. Speaking/Writing practice and mini mock tasks now expose static approved model answers in-task and checklist-only compare cards after submission. Automated gates and local guest browser QA pass. This does not clear beta; production signed-in sync, backup/reset/import, support email checks, and production deployment/signed-in display verification remain required.
 
 Addendum 2026-06-15 22:22 KST: Support email smoke is partially complete in `docs/implementation-reports/2026-06-15-support-email-smoke.md`. Production support page returns HTTP 200, Cloudflare MX records are present/reachable, and the MX accepts `support@score120coach.com` as a recipient before DATA. A raw unauthenticated SMTP DATA send from this machine was rejected with `550 5.7.26 Cannot forward emails that are not authenticated`, so monitored inbox receipt is still unverified. Next step: send from a normal authenticated mailbox and confirm arrival in the monitored inbox.
+
+Addendum 2026-06-15 22:30 KST: Model Answer & Compare Workflow v1 was pushed to production with a clearer `Sample Answer` label in `1bd69d0`. Production guest browser smoke verified `https://score120coach.com` shows `What ETS Wants`, `Sample Answer`, `Model answer`, and a high 4/5 sample response in Library > Speaking. Signed-in production display/persistence remains part of the broader production smoke.
 
 ## Current launch decision
 

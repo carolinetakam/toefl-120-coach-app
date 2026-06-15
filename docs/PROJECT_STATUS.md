@@ -1,6 +1,6 @@
 # TOEFL 120 Coach Project Status
 
-Last updated: 2026-06-15 22:22 KST
+Last updated: 2026-06-15 22:30 KST
 Repo: `/Users/carolinetakam/Documents/apps/toefl-120-coach-app-only`  
 Production URL: `https://score120coach.com`  
 Current branch: `main`  
@@ -76,7 +76,7 @@ The roadmap also required low-cost deterministic behavior first: use existing se
 - Local P1 progress/completion UX is now complete: required path days need all required submitted actions, locked days name missing required repairs, Path/Progress missing repairs are clickable, and submitted work shows a next-step prompt. This is verified locally but not yet deployed.
 - Local integrated-materials, timer/structure, and settings/preferences UX is implemented and verified locally. Production deployment and live learner smoke remain unverified.
 - Local Coaching Intelligence Layer v1 module, Today UI, regression coverage, full automated gate, and desktop/mobile guest browser QA are complete. Production signed-in coaching-card QA remains unverified.
-- Local Model Answer & Compare Workflow v1 is implemented and verified in guest browser QA. Production deployment and signed-in production persistence/display remain unverified.
+- Model Answer & Compare Workflow v1 is implemented and deployed. Production guest browser QA verified `Sample Answer`/`Model answer` display in a Speaking task. Signed-in production persistence/display remains unverified.
 - No verified live backup/export/reset/paste-import restore smoke test in this phase.
 - No verified real support email send/receive loop in this phase. Support page returns HTTP 200, Cloudflare MX records are present/reachable, and the MX accepts the recipient before DATA, but a raw unauthenticated DATA send was rejected with `550 5.7.26 Cannot forward emails that are not authenticated`; a normal authenticated email and monitored-inbox confirmation are still required.
 - Attempts are still primarily full-state/client-flow based, not a fully event-based immutable attempt engine.
@@ -101,6 +101,7 @@ export PATH=/Users/carolinetakam/.cache/codex-runtimes/codex-primary-runtime/dep
 | Production build | PASS | `next build --webpack` compiled and generated 9 static pages |
 | Local model-answer browser QA | PASS | `next start --port 3002` + bundled headless Chromium verified guest onboarding/diagnostic, Library > Speaking in-task Model Answer/What ETS Wants, post-submit Compare Yourself checklist, no AI/audio-scoring claims, and no desktop/mobile horizontal overflow |
 | Support email DNS/MX smoke | PARTIAL | `https://score120coach.com/support` returned HTTP 200 and displayed `support@score120coach.com`; MX points to Cloudflare Email Routing and port 25 is reachable; recipient check returned `250 2.1.0 Ok`; raw unauthenticated DATA send was rejected with `550 5.7.26`; monitored inbox receipt unverified |
+| Production model-answer guest smoke | PASS | Bundled headless Chromium verified `https://score120coach.com` guest onboarding/diagnostic -> Library > Speaking displays `What ETS Wants`, `Sample Answer`, `Model answer`, and high 4/5 sample response in-task |
 | Local production UI smoke | PASS with auth-provider warnings | `next start --port 3002` returned HTTP 200; headless Chromium verified guest mode after auth timeout, Settings panel, Mic help, and active Timers/Templates/Examples toggles on desktop/mobile. Local Clerk resource calls returned two 400 errors, matching local auth-provider checks rather than app runtime exceptions. |
 | Local coaching browser QA | PASS with auth-provider warnings | Headless Chromium verified desktop/mobile Today coaching cards, guest banner, no horizontal overflow, no forbidden score claims, Best Next Action opening a real Library task, and Path/Progress/Library tab loads. |
 | Coaching unit/regression tests | PASS | `vitest run lib/coaching --pool=threads` -> 7 files / 23 tests covering prediction priority, bottlenecks, next action, trend, weekly report, reset, and backup import regeneration. |

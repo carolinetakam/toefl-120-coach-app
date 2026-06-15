@@ -72,10 +72,14 @@ Commands run from `/Users/carolinetakam/Documents/Apps/toefl-120-coach-app-only`
   - submitting a speaking reflection showed `Compare Yourself`, learner answer, model answer, and comparison checklist;
   - no `AI scoring`, `GPT feedback`, or `audio-based scoring` claim appeared;
   - no desktop or mobile horizontal overflow detected.
+- Follow-up production smoke after pushing `1bd69d0`:
+  - Bundled headless Chromium opened `https://score120coach.com`;
+  - fresh guest onboarding and diagnostic completed;
+  - Library full practice opened;
+  - Speaking task displayed `What ETS Wants`, `Sample Answer`, `Model answer`, and the high 4/5 sample response in-task.
 
 ## 7. What remains unverified
 
-- Production deployment of this workflow was not performed in this phase.
 - Signed-in production persistence of the new workflow was not manually checked.
 - Real microphone recording was not used; this workflow intentionally uses checklist/self-review and does not claim audio scoring.
 - Full production beta smoke, backup/import restore, and support email checks remain unverified.
