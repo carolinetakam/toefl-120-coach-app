@@ -1,10 +1,10 @@
 # TOEFL 120 Coach Project Status
 
-Last updated: 2026-06-15 23:50 KST
+Last updated: 2026-06-15 23:59 KST
 Repo: `/Users/carolinetakam/Documents/apps/toefl-120-coach-app-only`  
 Production URL: `https://score120coach.com`  
 Current branch: `main`  
-Current head when reviewed: local changes after `5be3ea0 docs: add live sync smoke handoff`
+Current head when reviewed: `99e2b0b fix: preserve Clerk auth callback routing`
 
 ## Executive status
 
@@ -12,7 +12,7 @@ Current head when reviewed: local changes after `5be3ea0 docs: add live sync smo
 
 The app is technically building, the local automated suite passes, production public routes are live, and `/api/readiness` reports environment readiness. The remaining blockers are **live/manual checks** that cannot be honestly claimed from code inspection alone:
 
-1. signed-in production sync smoke test with a real account — **failed on 2026-06-15 because Convex production rejected saved app state fields; backend validator fix deployed, full browser/account matrix still must be retested**;
+1. signed-in production sync smoke test with a real account — **failed earlier on 2026-06-15 because Convex production rejected saved app state fields; backend validator fix deployed; latest auth callback redirect fix deployed in `99e2b0b`, but full real-account browser matrix still must be retested**;
 2. backup/export/reset/paste-import restore smoke test on production;
 3. real support email send/receive verification for `support@score120coach.com` — **partial DNS/MX/support-page smoke passed on 2026-06-15, but raw unauthenticated SMTP send was rejected by Cloudflare and monitored-inbox receipt remains unverified**.
 
@@ -71,7 +71,7 @@ The roadmap also required low-cost deterministic behavior first: use existing se
 - Root cause found: production `coach:saveAppState` mutations reached Convex but failed argument validation because the deployed backend validator did not accept `state.diagnosticFormId` and `state.speakingAttempts[].hasAudioEvidence`. Convex production was redeployed with the current validator and a backend-only synthetic save/restore check passed.
 - A patch now adds explicit sign out/switch controls and prevents one signed-in account from inheriting another account’s local browser progress. The live browser/account matrix still must be retested before beta clearance.
 - Local auth-state hardening now prevents signed-out/loading users from seeing stale personalized workspace content, adds explicit `Log In`, `Continue as Guest`, and `Create Account` actions, and makes guest mode explicit/local-only. This is verified locally but not yet deployed or tested with a real production Clerk account.
-- Auth-entry hardening now adds dedicated `/sign-in` and `/sign-up` Clerk pages and routes account controls there. After user reports that auth still did not move forward, app-shell `Log In` / `Create Account` controls were changed to real links instead of client `router.push()` button handlers. After a follow-up user report of a sign-in/home redirect loop, the `/?auth=sign-in` / `/?auth=sign-up` modal fallback path was removed and replaced with non-loop recovery links. Production smoke verifies the old fallback URL no longer auto-opens modal auth. After a private-browser post-login "page could not load" report, local code now adds route/global error recovery and signed-in cloud-restore fallback UI. Real-account login and signed-in sync remain unverified.
+- Auth-entry hardening now adds dedicated `/sign-in` and `/sign-up` Clerk pages and routes account controls there. After user reports that auth still did not move forward, app-shell `Log In` / `Create Account` controls were changed to real links instead of client `router.push()` button handlers. After a follow-up user report of a sign-in/home redirect loop, the `/?auth=sign-in` / `/?auth=sign-up` modal fallback path was removed and replaced with non-loop recovery links. Production smoke verifies the old fallback URL no longer auto-opens modal auth. After a private-browser post-login "page could not load" report, route/global error recovery and signed-in cloud-restore fallback UI were added. The latest deployed fix removes `forceRedirectUrl="/"` from Clerk's path-routed `/sign-in` and `/sign-up` pages so Clerk callback/continue routing is not overridden. Real-account login and signed-in sync remain unverified.
 - Local recording UX hardening now preserves task context when opening recording from Path/Mini Mock, shows a dominant recorder panel with duration/playback/re-record controls, and adds blocked microphone fallback actions for Self-Rating Mode, microphone help, and returning to the exercise. This is verified locally but not yet deployed or tested with a real microphone in production.
 - A local recording playback MIME fix now creates playback blobs with the browser-supported recorder MIME type instead of always forcing `audio/webm`. This targets the screenshot issue where the browser audio control showed `Error` after recording. Live microphone retest remains required.
 - Local P1 progress/completion UX is now complete: required path days need all required submitted actions, locked days name missing required repairs, Path/Progress missing repairs are clickable, and submitted work shows a next-step prompt. This is verified locally but not yet deployed.
@@ -115,6 +115,7 @@ export PATH=/Users/carolinetakam/.cache/codex-runtimes/codex-primary-runtime/dep
 | Auth-entry link hardening | PASS for entry path, real login unverified | Local build/type/focused lint passed; production Chromium verified `Log In` and `Create Account` render real `/sign-in` and `/sign-up` links, clicking both reaches Clerk auth pages, and Clerk returns the expected unknown-account response for a fake email. Production valid-account login still needs retest. |
 | Auth redirect-loop fix | PASS for loop removal, real login unverified | Local build/type/focused lint passed; local and production smoke verified `/sign-in` no longer links to popup fallback and `/?auth=sign-in` no longer opens modal auth. Production valid-account login still needs retest. |
 | Post-login load recovery | PASS for deployment smoke, production real login unverified | `vitest run`, `tsc --noEmit`, `eslint .`, and `next build --webpack` passed; local and production HTTP smoke verified `/` and `/sign-in` return 200; production `/api/readiness` returns `ready:true`; live JS includes route/global recovery screens and the updated app bundle. Production valid-account login still needs retest. |
+| Clerk callback redirect fix | PASS for deployment/static smoke, production real login unverified | `99e2b0b` removed `forceRedirectUrl="/"` from `/sign-in` and `/sign-up` while preserving `fallbackRedirectUrl="/"`; `vitest run tests/auth-entry-routes.test.ts --pool=threads`, `vitest run --pool=threads`, `tsc --noEmit`, `eslint .`, and `next build --webpack` passed; production `/sign-in` and `/sign-up` live payloads no longer contain `forceRedirectUrl`; `/`, `/sign-in`, `/sign-up`, `/support`, `/privacy`, `/terms`, `/beta`, `/korea` returned HTTP 200; `/api/readiness` returned `ready:true`. Production valid-account login still needs retest. |
 | Same-account logout/login + incognito restore | USER-REPORTED PASS | Caroline reported data restored after logout/login and in incognito for an account tested earlier |
 | Backup export | USER-PROVIDED FILE PASS | `toefl-120-coach-backup-2026-06-15.json` parsed successfully and contains meaningful learner state |
 | Reset progress | USER-REPORTED PASS | Caroline reported reset works |
