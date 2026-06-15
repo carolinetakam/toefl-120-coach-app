@@ -2,12 +2,12 @@
 
 Date/time: 2026-06-16 00:46 KST  
 Repo: `/Users/carolinetakam/Documents/Apps/toefl-120-coach-app-only`  
-Branch/head: `main` at `c5dcb4f` before new commit  
+Branch/head: `main` at `46b6173` after `fix: guard cloud restore render state`  
 Owner/agent: Codex
 
 ## 1. Status
 
-Done locally and verified with focused render tests, full tests, lint, typecheck, and production build. Deployment follows this report.
+Done, pushed, force-deployed to Vercel production, and verified with focused render tests, full tests, lint, typecheck, production build, and production route/readiness smoke.
 
 ## 2. Objective
 
@@ -40,6 +40,11 @@ export PATH=/Users/carolinetakam/.cache/codex-runtimes/codex-primary-runtime/dep
 - `vitest run --pool=threads` -> PASS, 37 files / 160 tests.
 - `eslint components/coach-app.tsx tests/recovery-boundary.test.ts tests/signed-in-restore-render.test.ts` -> PASS.
 - `next build --webpack` -> PASS, compiled successfully and generated 9 static pages.
+- `git push origin main` -> pushed `46b6173`.
+- `npx vercel --prod --yes` -> deployment `dpl_2fWZUk8pCM22o5puoRJzeYX4MDCv` reached `READY` and was aliased to `https://score120coach.com`.
+- `curl -fsS https://score120coach.com/api/readiness` -> `ready:true`.
+- Production route smoke -> `/`, `/sign-in`, `/sign-up`, `/beta`, `/support`, `/privacy`, `/terms`, `/korea` all returned HTTP 200.
+- Live root bundle check found `CLOUD_RESTORE_RENDER_CHECK_FAILED` in deployed `/_next/static/chunks/app/page-c2b16a1d15910192.js`.
 
 ## 7. What remains unverified
 
@@ -57,4 +62,4 @@ This is a containment fix, not a destructive data fix. If a cloud snapshot is ju
 
 ## 10. Next smallest useful step
 
-Deploy, open `https://score120coach.com` in the affected browser, and confirm the app stays in the workspace. If it shows `Sync offline`, export/show backup JSON from the local workspace and inspect the cloud snapshot shape before attempting any data repair.
+Open `https://score120coach.com` in the affected browser and confirm the app stays in the workspace. If it shows `Sync offline`, export/show backup JSON from the local workspace and inspect the cloud snapshot shape before attempting any data repair.
