@@ -1,4 +1,4 @@
-import { SignUp } from '@clerk/nextjs';
+import { AuthEntryPanel } from '@/components/auth-entry-panel';
 import Link from 'next/link';
 
 export default function SignUpPage() {
@@ -17,12 +17,7 @@ export default function SignUpPage() {
             </div>
           </div>
         </div>
-        <SignUp
-          path="/sign-up"
-          routing="path"
-          signInUrl="/sign-in"
-          fallbackRedirectUrl="/"
-        />
+        <AuthEntryPanel mode="sign-up" />
       </section>
     </main>
   );

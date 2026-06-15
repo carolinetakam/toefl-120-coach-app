@@ -1,6 +1,6 @@
 # Next Phase Handoff: Beta Clearance to Official Launch
 
-Last updated: 2026-06-16 00:49 KST
+Last updated: 2026-06-16 01:03 KST
 Project: TOEFL 120 Coach  
 Repo: `/Users/carolinetakam/Documents/apps/toefl-120-coach-app-only`  
 Production: `https://score120coach.com`
@@ -48,6 +48,8 @@ Addendum 2026-06-16 00:24 KST: after the user reported that simply opening `scor
 Addendum 2026-06-16 00:40 KST: after the user showed a mixed post-login state where Clerk was signed in but the sidebar still showed `Guest learner`, `Guest mode`, and `Save Local`, `docs/implementation-reports/2026-06-16-signed-in-auth-state-priority.md` records a narrow fix. `components/coach-app.tsx` now makes Clerk signed-in state win over stale guest/safe-recovery state, clears stale guest/safe-recovery/local-signout state, and resets sync readiness so Convex restore can run. Commit `c68106f` was pushed and force-deployed to Vercel production deployment `dpl_6JLvgx5ywxqEeCTRLo2EiVaCVWTS`; production readiness and public/auth route smoke pass. Real-account production retest remains required.
 
 Addendum 2026-06-16 00:49 KST: after the user reported that production briefly loads signed-in diagnostic/workspace state and then switches to `Could not load your TOEFL workspace`, `docs/implementation-reports/2026-06-16-cloud-restore-render-guard.md` adds a containment fix. Sanitized Convex state is now checked against the same top-level app derivations used by the UI before replacing the current workspace state. If the snapshot is not render-safe, the app stays authenticated and sync-offline instead of tripping the root recovery boundary. Commit `46b6173` was pushed and force-deployed to Vercel production deployment `dpl_2fWZUk8pCM22o5puoRJzeYX4MDCv`; production readiness and public/auth route smoke pass. Affected-account retest remains required.
+
+Addendum 2026-06-16 01:03 KST: after the user clarified that the actual `/sign-in` page does not reliably render, `docs/implementation-reports/2026-06-16-auth-entry-visible-render-guard.md` records a narrow auth-entry fix. `/sign-in` and `/sign-up` now render through `components/auth-entry-panel.tsx`, which shows a visible secure loading/recovery panel while Clerk mounts instead of leaving a blank form area. Production deployment `dpl_AfM1t5k7x2cwjP6VEqDr2WFsuQu8` is aliased to `score120coach.com`; desktop Chromium verified clicking `Log In` from `/` reaches `/sign-in` and shows Clerk email/password fields with no console/network failures; mobile Chromium verified `/sign-in` and `/sign-up` forms render with no horizontal overflow. Real-account login, post-login `/` landing, sidebar cloud sync state, and Convex restore remain unverified.
 
 ## Current launch decision
 

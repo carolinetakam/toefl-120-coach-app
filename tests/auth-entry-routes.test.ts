@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 const root = process.cwd();
 const signInPage = readFileSync(join(root, 'app/sign-in/[[...sign-in]]/page.tsx'), 'utf8');
 const signUpPage = readFileSync(join(root, 'app/sign-up/[[...sign-up]]/page.tsx'), 'utf8');
+const authEntryPanel = readFileSync(join(root, 'components/auth-entry-panel.tsx'), 'utf8');
 
 describe('auth entry routes', () => {
   it('does not force redirect away from Clerk path callbacks', () => {
@@ -13,7 +14,15 @@ describe('auth entry routes', () => {
   });
 
   it('keeps direct auth-page fallback redirects on the app home page', () => {
-    expect(signInPage).toContain('fallbackRedirectUrl="/"');
-    expect(signUpPage).toContain('fallbackRedirectUrl="/"');
+    expect(authEntryPanel).toContain('fallbackRedirectUrl="/"');
+    expect(authEntryPanel).toContain('path="/sign-in"');
+    expect(authEntryPanel).toContain('path="/sign-up"');
+  });
+
+  it('keeps a visible loading/recovery panel while Clerk mounts', () => {
+    expect(signInPage).toContain('<AuthEntryPanel mode="sign-in" />');
+    expect(signUpPage).toContain('<AuthEntryPanel mode="sign-up" />');
+    expect(authEntryPanel).toContain('Loading secure sign-in.');
+    expect(authEntryPanel).toContain('Sign-in form is still loading.');
   });
 });
