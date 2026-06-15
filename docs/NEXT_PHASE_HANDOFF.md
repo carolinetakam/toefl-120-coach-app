@@ -1,6 +1,6 @@
 # Next Phase Handoff: Beta Clearance to Official Launch
 
-Last updated: 2026-06-16 00:31 KST
+Last updated: 2026-06-16 00:40 KST
 Project: TOEFL 120 Coach  
 Repo: `/Users/carolinetakam/Documents/apps/toefl-120-coach-app-only`  
 Production: `https://score120coach.com`
@@ -45,7 +45,7 @@ Addendum 2026-06-16 00:07 KST: after the user shared a screenshot of the route-l
 
 Addendum 2026-06-16 00:24 KST: after the user reported that simply opening `score120coach.com` still showed the route recovery page, `docs/implementation-reports/2026-06-16-root-recovery-boundary.md` added `CoachAppBoundary` around the root app. On first root render crash it clears only TOEFL browser-local state, sets safe recovery mode, reloads `/`, and boots a local guest session without deleting Convex/cloud data. Commit `2fcfe83` was pushed to `main`; GitHub push did not refresh the static root promptly, so `npx vercel --prod --yes` force-deployed and aliased `score120coach.com`. Live root HTML now references `CoachAppBoundary`; production readiness and public routes pass. User-browser retest still required.
 
-Addendum 2026-06-16 00:31 KST: after the user showed a mixed post-login state where Clerk was signed in but the sidebar still showed `Guest learner`, `Guest mode`, and `Save Local`, `docs/implementation-reports/2026-06-16-signed-in-auth-state-priority.md` records a narrow local fix. `components/coach-app.tsx` now clears stale guest/safe-recovery/local-signout state when Clerk reports a signed-in user and resets sync readiness so Convex restore can run. Focused regression tests, focused lint, `next build --webpack`, and `tsc --noEmit` after build regeneration pass. Deploy and real-account production retest remain required.
+Addendum 2026-06-16 00:40 KST: after the user showed a mixed post-login state where Clerk was signed in but the sidebar still showed `Guest learner`, `Guest mode`, and `Save Local`, `docs/implementation-reports/2026-06-16-signed-in-auth-state-priority.md` records a narrow fix. `components/coach-app.tsx` now makes Clerk signed-in state win over stale guest/safe-recovery state, clears stale guest/safe-recovery/local-signout state, and resets sync readiness so Convex restore can run. Commit `c68106f` was pushed and force-deployed to Vercel production deployment `dpl_6JLvgx5ywxqEeCTRLo2EiVaCVWTS`; production readiness and public/auth route smoke pass. Real-account production retest remains required.
 
 ## Current launch decision
 

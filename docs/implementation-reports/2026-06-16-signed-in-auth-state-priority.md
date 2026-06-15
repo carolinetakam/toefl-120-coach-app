@@ -2,12 +2,12 @@
 
 Date/time: 2026-06-16 00:31 KST  
 Repo: `/Users/carolinetakam/Documents/Apps/toefl-120-coach-app-only`  
-Branch/head: `main` at `baa16b2` before new commit  
+Branch/head: `main` at `c68106f` after `fix: prioritize signed-in auth state`  
 Owner/agent: Codex
 
 ## 1. Status
 
-Done locally and verified with focused tests, lint, typecheck after build regeneration, and production build.
+Done, pushed to `main`, deployed to Vercel production, and verified with focused tests, full tests, lint, typecheck, production build, and production route/readiness smoke.
 
 ## 2. Objective
 
@@ -39,12 +39,17 @@ export PATH=/Users/carolinetakam/.cache/codex-runtimes/codex-primary-runtime/dep
 - `eslint components/coach-app.tsx tests/recovery-boundary.test.ts` -> PASS.
 - `next build --webpack` -> PASS, compiled successfully and generated 9 static pages.
 - `tsc --noEmit` initially failed because stale `.next/types` files were missing; after `next build --webpack` regenerated them, `tsc --noEmit` -> PASS.
+- `git push origin main` -> pushed `c68106f`.
+- `npx vercel --prod --yes` -> deployment `dpl_6JLvgx5ywxqEeCTRLo2EiVaCVWTS` reached `READY` and was aliased to `https://score120coach.com`.
+- `curl -fsS https://score120coach.com/api/readiness` -> `ready:true`.
+- Production route smoke -> `/`, `/sign-in`, `/sign-up`, `/beta`, `/support`, `/privacy`, `/terms`, `/korea` all returned HTTP 200.
+- Live root bundle check found the authenticated onboarding gate in the deployed `/_next/static/chunks/app/page-20ce60e2354181c9.js` bundle.
 
 ## 7. What remains unverified
 
 - Real production Clerk account login after this exact patch.
 - Production Convex restore from an existing signed-in account.
-- Browser screenshot confirmation that the sidebar now shows authenticated/cloud mode.
+- Browser screenshot confirmation from the affected account that the sidebar now shows authenticated/cloud mode.
 - Same-account/different-account sync matrix.
 - Backup/reset/import and support email checks.
 
@@ -58,4 +63,4 @@ This is intentionally narrow. It changes only client auth-state reconciliation a
 
 ## 10. Next smallest useful step
 
-Deploy this patch, open `https://score120coach.com` in the affected browser, sign in with a real test account, and confirm the sidebar shows `Cloud sync` with either `Save Synced` or `Save Offline`, not `Guest mode` / `Save Local`.
+Open `https://score120coach.com` in the affected browser, sign in with a real test account, and confirm the sidebar shows `Cloud sync` with either `Save Synced` or `Save Offline`, not `Guest mode` / `Save Local`.
