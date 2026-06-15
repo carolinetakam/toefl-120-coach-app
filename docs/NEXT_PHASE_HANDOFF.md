@@ -1,6 +1,6 @@
 # Next Phase Handoff: Beta Clearance to Official Launch
 
-Last updated: 2026-06-15 22:30 KST
+Last updated: 2026-06-15 23:08 KST
 Project: TOEFL 120 Coach  
 Repo: `/Users/carolinetakam/Documents/apps/toefl-120-coach-app-only`  
 Production: `https://score120coach.com`
@@ -29,6 +29,8 @@ Addendum 2026-06-15 22:22 KST: Support email smoke is partially complete in `doc
 
 Addendum 2026-06-15 22:30 KST: Model Answer & Compare Workflow v1 was pushed to production with a clearer `Sample Answer` label in `1bd69d0`. Production guest browser smoke verified `https://score120coach.com` shows `What ETS Wants`, `Sample Answer`, `Model answer`, and a high 4/5 sample response in Library > Speaking. Signed-in production display/persistence remains part of the broader production smoke.
 
+Addendum 2026-06-15 23:08 KST: after the user reported they could not log into the app, a local auth-entry patch added dedicated `/sign-in` and `/sign-up` Clerk pages and changed in-app account buttons to route there instead of relying only on modal auth. TypeScript, lint, focused sync-ownership test, and production build pass locally. Production-domain auth-page rendering and real-account login remain unverified until deploy.
+
 ## Current launch decision
 
 - **Founder/internal smoke:** allowed now.
@@ -52,7 +54,7 @@ Prove that real users can safely sign in, complete the first TOEFL loop, recover
 ### Required steps
 
 1. Open `https://score120coach.com` in a real browser.
-2. Sign in with a real beta test account.
+2. Open `/sign-in` from the `Log In` button, then sign in with a real beta test account.
 3. Complete profile setup.
 4. Complete diagnostic.
 5. Complete one timed mini mock.

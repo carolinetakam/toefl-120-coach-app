@@ -1,6 +1,6 @@
 # TOEFL 120 Coach Project Status
 
-Last updated: 2026-06-15 22:30 KST
+Last updated: 2026-06-15 23:08 KST
 Repo: `/Users/carolinetakam/Documents/apps/toefl-120-coach-app-only`  
 Production URL: `https://score120coach.com`  
 Current branch: `main`  
@@ -71,6 +71,7 @@ The roadmap also required low-cost deterministic behavior first: use existing se
 - Root cause found: production `coach:saveAppState` mutations reached Convex but failed argument validation because the deployed backend validator did not accept `state.diagnosticFormId` and `state.speakingAttempts[].hasAudioEvidence`. Convex production was redeployed with the current validator and a backend-only synthetic save/restore check passed.
 - A patch now adds explicit sign out/switch controls and prevents one signed-in account from inheriting another account’s local browser progress. The live browser/account matrix still must be retested before beta clearance.
 - Local auth-state hardening now prevents signed-out/loading users from seeing stale personalized workspace content, adds explicit `Log In`, `Continue as Guest`, and `Create Account` actions, and makes guest mode explicit/local-only. This is verified locally but not yet deployed or tested with a real production Clerk account.
+- Local auth-entry hardening now adds dedicated `/sign-in` and `/sign-up` Clerk pages and routes account buttons there instead of relying only on modal auth. This is verified by type/lint/build and local routing smoke, but production-domain login with a real account remains unverified until deploy.
 - Local recording UX hardening now preserves task context when opening recording from Path/Mini Mock, shows a dominant recorder panel with duration/playback/re-record controls, and adds blocked microphone fallback actions for Self-Rating Mode, microphone help, and returning to the exercise. This is verified locally but not yet deployed or tested with a real microphone in production.
 - A local recording playback MIME fix now creates playback blobs with the browser-supported recorder MIME type instead of always forcing `audio/webm`. This targets the screenshot issue where the browser audio control showed `Error` after recording. Live microphone retest remains required.
 - Local P1 progress/completion UX is now complete: required path days need all required submitted actions, locked days name missing required repairs, Path/Progress missing repairs are clickable, and submitted work shows a next-step prompt. This is verified locally but not yet deployed.
@@ -110,6 +111,7 @@ export PATH=/Users/carolinetakam/.cache/codex-runtimes/codex-primary-runtime/dep
 | Convex production validator deploy | PASS | `convex deploy --env-file /tmp/toefl-convex-prod.env --message "fix app state validator for production sync"` deployed to `brainy-chicken-240` |
 | Backend-only sync shape smoke | PASS | Synthetic `coach:saveAppState` + `coach:getAppState` accepted `diagnosticFormId`, `hasAudioEvidence`, and `miniMockAttempts`; synthetic app snapshot was deleted |
 | Local logout/guest auth UI | PASS locally | Production-mode local Chrome check verified signed-out prompt/actions, guest banner/actions, and mobile no-overflow |
+| Local auth-entry routes | PASS locally with production-domain retest required | `tsc --noEmit`, `eslint .`, focused auth/sync ownership test, and `next build --webpack` passed; local `Log In` navigated to `/sign-in`; local Clerk forms could not render with live Clerk key on `localhost` because Clerk returned HTTP 400 |
 | Same-account logout/login + incognito restore | USER-REPORTED PASS | Caroline reported data restored after logout/login and in incognito for an account tested earlier |
 | Backup export | USER-PROVIDED FILE PASS | `toefl-120-coach-backup-2026-06-15.json` parsed successfully and contains meaningful learner state |
 | Reset progress | USER-REPORTED PASS | Caroline reported reset works |
@@ -137,6 +139,7 @@ The app is close, but beta onboarding should remain blocked until these are veri
 ## Current highest-risk areas
 
 1. **Manual production sync incomplete:** Same-account logout/login and incognito restore are user-reported passing, but different-account isolation and Safari still need production browser verification.
+1. **Production login retest needed:** Dedicated auth pages are added locally, but `/sign-in` and `/sign-up` must be verified after deploy with the production Clerk domain and a real account.
 2. **Backup/reset trust incomplete:** Backup export, reset, and import access have positive evidence, but imported-data restore correctness is not proven.
 3. **Coaching production account QA incomplete:** Coaching cards are locally verified in guest mode, but signed-in production persistence/display still needs the production smoke above.
 4. **Support deliverability unknown:** Beta users need a real support path before invitation.

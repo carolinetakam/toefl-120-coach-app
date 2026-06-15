@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { UserButton, useAuth, useClerk } from '@clerk/nextjs';
 import { useMutation, useQuery } from 'convex/react';
+import { useRouter } from 'next/navigation';
 import { api } from '@/convex/_generated/api';
 import { BottleneckCard } from '@/components/coaching/bottleneck-card';
 import { CoachingSnapshot } from '@/components/coaching/coaching-snapshot';
@@ -479,7 +480,8 @@ export function CoachApp() {
   const authModeRef = useRef<string | undefined>(undefined);
   const previousAuthStatusRef = useRef<AuthStatus>('loading');
   const { isLoaded: authLoaded, isSignedIn, userId } = useAuth();
-  const { openSignIn, openSignUp, signOut } = useClerk();
+  const router = useRouter();
+  const { signOut } = useClerk();
   const authMode = authLoaded ? (isSignedIn ? `signed-in:${userId ?? 'unknown'}` : 'signed-out') : 'loading';
   const authState: AuthState = useMemo(() => {
     if (!ready || (!authLoaded && !authCheckTimedOut)) return { status: 'loading', user: null, isGuest: false };
@@ -969,12 +971,12 @@ export function CoachApp() {
 
   function openAccountSignIn() {
     setSignedOutLocally(false);
-    openSignIn();
+    router.push('/sign-in');
   }
 
   function openAccountSignUp() {
     setSignedOutLocally(false);
-    openSignUp();
+    router.push('/sign-up');
   }
 
   function continueAsGuest() {
