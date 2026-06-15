@@ -1,10 +1,10 @@
 # TOEFL 120 Coach Project Status
 
-Last updated: 2026-06-14 01:54 KST  
+Last updated: 2026-06-15 12:28 KST
 Repo: `/Users/carolinetakam/Documents/apps/toefl-120-coach-app-only`  
 Production URL: `https://score120coach.com`  
 Current branch: `main`  
-Current head when reviewed: `e5d3805 chore: trigger vercel deployment`
+Current head when reviewed: `126978b fix: add account switch and sync ownership guard`
 
 ## Executive status
 
@@ -118,13 +118,14 @@ Start with these instead of scanning every file:
 
 1. `AGENTS.md`
 2. `docs/PROJECT_STATUS.md` — this file, current precise state
-3. `docs/NEXT_PHASE_HANDOFF.md` — next steps to official launch
-4. `docs/implementation-reports/` — reports after each implementation phase
-5. `docs/beta-onboarding-agent-handoff.md`
-6. `docs/beta-operations.md`
-7. `docs/convex-production-plan.md`
-8. `docs/architecture/TOEFL_Coach_Architecture/APP_AUDIT.md`
-9. `docs/architecture/TOEFL_Coach_Architecture/REFACTOR_ROADMAP.md`
+3. `docs/LIVE_SYNC_SMOKE_HANDOFF.md` — current failed signed-in sync smoke, patch, and retest checklist
+4. `docs/NEXT_PHASE_HANDOFF.md` — next steps to official launch
+5. `docs/implementation-reports/` — reports after each implementation phase
+6. `docs/beta-onboarding-agent-handoff.md`
+7. `docs/beta-operations.md`
+8. `docs/convex-production-plan.md`
+9. `docs/architecture/TOEFL_Coach_Architecture/APP_AUDIT.md`
+10. `docs/architecture/TOEFL_Coach_Architecture/REFACTOR_ROADMAP.md`
 
 ## Rule going forward
 

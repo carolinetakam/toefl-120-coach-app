@@ -1,6 +1,6 @@
 # Next Phase Handoff: Beta Clearance to Official Launch
 
-Last updated: 2026-06-14 01:54 KST  
+Last updated: 2026-06-15 12:28 KST
 Project: TOEFL 120 Coach  
 Repo: `/Users/carolinetakam/Documents/apps/toefl-120-coach-app-only`  
 Production: `https://score120coach.com`
@@ -8,6 +8,8 @@ Production: `https://score120coach.com`
 ## Handoff summary
 
 The codebase is a working beta candidate. Automated local gates pass and production public routes are live. The next phase is **not more feature building first**. The next phase is clearing the manual production trust gates, inviting a tiny beta cohort, then hardening only what real beta use exposes.
+
+**Current priority blocker:** the signed-in production sync smoke failed on 2026-06-15. Read `docs/LIVE_SYNC_SMOKE_HANDOFF.md` before any beta-clearance work. A patch was pushed in `126978b`; the next owner must confirm the deployed site shows the new account-switch UI and then rerun the same-account private-browser restore test.
 
 ## Current launch decision
 
