@@ -7,7 +7,7 @@ Owner/agent: Codex
 
 ## 1. Status
 
-Done locally, pending production verification after push.
+Done and production auth-entry smoke passed.
 
 ## 2. Objective
 
@@ -34,6 +34,13 @@ User report after `434dd0c`: page load and login entry were unreliable even afte
 - `eslint components/coach-app.tsx 'app/sign-in/[[...sign-in]]/page.tsx' 'app/sign-up/[[...sign-up]]/page.tsx'` -> PASS.
 - Local production smoke on `http://localhost:3002` verified `Log In` has `href="/sign-in"` and `Create Account` has `href="/sign-up"`.
 - Production pre-fix smoke verified `https://score120coach.com/sign-in` loads Clerk and Clerk returns a normal `422` response for a fake unknown email, proving the widget can call Clerk on the production domain.
+- Production post-deploy smoke verified:
+  - `Log In` renders as a real `href="/sign-in"` link.
+  - Clicking `Log In` reaches `https://score120coach.com/sign-in`.
+  - Clerk sign-in page loads.
+  - Submitting `test@example.com` returns Clerk's expected `Couldn't find your account` response.
+  - `Create Account` renders as a real `href="/sign-up"` link.
+  - Clicking `Create Account` reaches `https://score120coach.com/sign-up` and shows an email field.
 
 ## 7. What remains unverified
 
@@ -51,4 +58,4 @@ Rollback is low risk: restore the previous button handlers if anchor navigation 
 
 ## 10. Next smallest useful step
 
-After push/deploy, open `https://score120coach.com`, click `Log In`, sign in with a real test account, and confirm the app returns to `/` with synced learner state.
+Open `https://score120coach.com`, click `Log In`, sign in with a real test account, and confirm the app returns to `/` with synced learner state.
