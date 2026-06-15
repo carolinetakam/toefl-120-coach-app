@@ -22,7 +22,6 @@ export default function SignInPage() {
           routing="path"
           signUpUrl="/sign-up"
           fallbackRedirectUrl="/"
-          forceRedirectUrl="/"
         />
       </section>
     </main>
