@@ -197,44 +197,32 @@ audio {
   min-height: 374px;
   display: grid;
   align-items: center;
+  gap: 12px;
 }
 
-.authLoadingPanel {
+.authPassiveHelper,
+.authPassiveLinks {
   width: min(100%, 400px);
   margin: 0 auto;
-  display: grid;
-  gap: 12px;
-  padding: 22px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-card);
-  background: var(--surface);
-  box-shadow: var(--shadow-soft);
 }
 
-.authLoadingPanel h2,
-.authLoadingPanel p {
-  margin: 0;
-}
-
-.authLoadingPanel h2 {
-  font-size: 20px;
-}
-
-.authLoadingPanel p {
+.authPassiveHelper {
   color: var(--muted);
+  font-size: 14px;
   line-height: 1.5;
+  text-align: center;
+}
+
+.authPassiveLinks {
+  display: grid;
+  grid-template-columns: repeat(2, max-content);
+  justify-content: center;
+  gap: 12px;
 }
 
 .authClerkMount {
   display: grid;
   justify-items: center;
-}
-
-.authClerkMount:not(.ready) {
-  position: absolute;
-  inset: 0;
-  opacity: 0;
-  pointer-events: none;
 }
 
 .stack {

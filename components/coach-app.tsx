@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { UserButton, useAuth, useClerk } from '@clerk/nextjs';
+import { useAuth, useClerk } from '@clerk/nextjs';
 import { useMutation, useQuery } from 'convex/react';
 import Link from 'next/link';
 import { api } from '@/convex/_generated/api';
@@ -111,6 +111,40 @@ const defaultCoachPreferences: CoachPreferences = {
   showExamples: true,
   showTemplates: true,
 };
+
+function getClerkTraceSnapshot(fallback: { isSignedIn: boolean; userId: string | null | undefined; sessionId: string | null | undefined }) {
+  if (typeof window === 'undefined') return fallback;
+  const clerk = (window as typeof window & {
+    Clerk?: {
+      user?: { id?: string | null } | null;
+      session?: { id?: string | null } | null;
+      client?: {
+        lastActiveSession?: { id?: string | null } | null;
+        activeSessions?: Array<{ id?: string | null }>;
+      } | null;
+    };
+  }).Clerk;
+  if (!clerk) return fallback;
+  const session = clerk?.session ?? clerk?.client?.lastActiveSession ?? clerk?.client?.activeSessions?.[0] ?? null;
+
+  return {
+    isSignedIn: Boolean(clerk?.user && session),
+    userId: clerk?.user?.id ?? null,
+    sessionId: session?.id ?? null,
+  };
+}
+
+async function waitForClerkSignedOut(fallback: { isSignedIn: boolean; userId: string | null | undefined; sessionId: string | null | undefined }) {
+  const startedAt = Date.now();
+  let snapshot = getClerkTraceSnapshot(fallback);
+
+  while (snapshot.isSignedIn && Date.now() - startedAt < 2500) {
+    await new Promise((resolve) => window.setTimeout(resolve, 100));
+    snapshot = getClerkTraceSnapshot(fallback);
+  }
+
+  return snapshot;
+}
 
 const pathStatusLabels: Record<UnlockStatus, string> = {
   completed: '✓ Completed',
@@ -513,16 +547,16 @@ export function CoachApp() {
   const authModeRef = useRef<string | undefined>(undefined);
   const previousAuthStatusRef = useRef<AuthStatus>('loading');
   const preventBlankCloudOverwriteRef = useRef(false);
-  const { isLoaded: authLoaded, isSignedIn, userId } = useAuth();
+  const { isLoaded: authLoaded, isSignedIn, userId, sessionId } = useAuth();
   const { signOut } = useClerk();
   const authMode = authLoaded ? (isSignedIn ? `signed-in:${userId ?? 'unknown'}` : 'signed-out') : 'loading';
   const authState: AuthState = useMemo(() => {
     if (!ready || (!authLoaded && !authCheckTimedOut)) return { status: 'loading', user: null, isGuest: false };
-    if (isSignedIn && userId && (!signedOutLocally || guestSession || recoveryMode)) return { status: 'authenticated', user: { id: userId }, isGuest: false };
+    if (isSignedIn && userId) return { status: 'authenticated', user: { id: userId }, isGuest: false };
     if (recoveryMode && guestSession) return { status: 'guest', user: null, isGuest: true };
     if (guestSession) return { status: 'guest', user: null, isGuest: true };
     return { status: 'unauthenticated', user: null, isGuest: false };
-  }, [authCheckTimedOut, authLoaded, guestSession, isSignedIn, ready, recoveryMode, signedOutLocally, userId]);
+  }, [authCheckTimedOut, authLoaded, guestSession, isSignedIn, ready, recoveryMode, userId]);
   const convexState = useQuery(api.coach.getAppState, authState.status === 'authenticated' ? {} : 'skip');
   const saveConvexState = useMutation(api.coach.saveAppState);
   const deleteConvexData = useMutation(api.coach.deleteMyData);
@@ -554,13 +588,38 @@ export function CoachApp() {
     setTab('today');
   }, []);
 
+  const continueAsGuest = useCallback(() => {
+    const existingGuestSession = getGuestSession();
+    if (!existingGuestSession) {
+      resetState();
+      setLocalSyncOwner(null);
+      if (typeof window !== 'undefined') {
+        window.localStorage.removeItem(diagnosticStartedAtKey);
+      }
+    }
+    const nextGuestSession = existingGuestSession ?? createGuestSession();
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(guestSessionKey, JSON.stringify(nextGuestSession));
+    }
+    setSignedOutLocally(false);
+    setGuestSession(nextGuestSession);
+    const localState = loadState();
+    localStateRef.current = localState;
+    setState(localState);
+    resetPersonalizedUiState();
+    setSyncReady(false);
+    setSaveStatus('Local');
+    setFeedback('Guest mode started. Progress stays on this device until you log in.');
+  }, [resetPersonalizedUiState]);
+
   useEffect(() => {
     if (!authLoaded) return;
     console.log('AUTH_STATE', {
       userId,
+      sessionId,
       isSignedIn: Boolean(isSignedIn),
     });
-  }, [authLoaded, isSignedIn, userId]);
+  }, [authLoaded, isSignedIn, sessionId, userId]);
 
   useEffect(() => {
     const shouldRecover = window.sessionStorage.getItem(recoveryModeKey) === '1';
@@ -602,9 +661,26 @@ export function CoachApp() {
   useEffect(() => {
     if (authState.status !== 'unauthenticated') return;
     if (typeof window === 'undefined') return;
+    const url = new URL(window.location.href);
+    if (url.searchParams.get('guest') !== '1') return;
+
+    continueAsGuest();
+    url.searchParams.delete('guest');
+    const nextUrl = `${url.pathname}${url.search}${url.hash}`;
+    window.history.replaceState(null, '', nextUrl || '/');
+  }, [authState.status, continueAsGuest]);
+
+  useEffect(() => {
+    if (authState.status !== 'unauthenticated') return;
+    if (typeof window === 'undefined') return;
     if (window.location.pathname === '/sign-in' || window.location.pathname === '/sign-up') return;
+    if (new URLSearchParams(window.location.search).get('guest') === '1') return;
+    console.log('AUTH_REDIRECT_BEFORE_SIGN_IN', {
+      authState,
+      signedOutLocally,
+    });
     window.location.assign('/sign-in');
-  }, [authState.status]);
+  }, [authState, signedOutLocally]);
 
   useEffect(() => {
     if (authLoaded) {
@@ -1067,31 +1143,34 @@ export function CoachApp() {
     setFeedback('Your TOEFL path is ready. First, we’ll find your fastest score improvement area.');
   }
 
-  function continueAsGuest() {
-    const existingGuestSession = getGuestSession();
-    if (!existingGuestSession) {
-      resetState();
-      setLocalSyncOwner(null);
-      if (typeof window !== 'undefined') {
-        window.localStorage.removeItem(diagnosticStartedAtKey);
-      }
-    }
-    const nextGuestSession = existingGuestSession ?? createGuestSession();
-    if (typeof window !== 'undefined') {
-      window.localStorage.setItem(guestSessionKey, JSON.stringify(nextGuestSession));
-    }
-    setSignedOutLocally(false);
-    setGuestSession(nextGuestSession);
-    const localState = loadState();
-    localStateRef.current = localState;
-    setState(localState);
-    resetPersonalizedUiState();
-    setSyncReady(false);
-    setSaveStatus('Local');
-    setFeedback('Guest mode started. Progress stays on this device until you log in.');
-  }
-
   async function handleSignOut() {
+    console.log('AUTH_LOGOUT_BEFORE', getClerkTraceSnapshot({
+      isSignedIn: Boolean(isSignedIn),
+      userId,
+      sessionId,
+    }));
+    setFeedback('Signing out securely.');
+
+    let afterSignOutSnapshot: { isSignedIn: boolean; userId: string | null | undefined; sessionId: string | null | undefined };
+    try {
+      await signOut();
+      afterSignOutSnapshot = await waitForClerkSignedOut({
+        isSignedIn: Boolean(isSignedIn),
+        userId,
+        sessionId,
+      });
+    } catch (error) {
+      console.log('AUTH_LOGOUT_FAILED', error);
+      setFeedback('Sign out did not complete. Please try again.');
+      return;
+    }
+
+    console.log('AUTH_LOGOUT_AFTER_SIGNOUT_RESOLVED', afterSignOutSnapshot);
+    if (afterSignOutSnapshot.isSignedIn) {
+      setFeedback('Sign out did not complete. Please try again.');
+      return;
+    }
+
     setSignedOutLocally(true);
     setGuestSession(null);
     clearLocalProgressForAccountExit();
@@ -1101,7 +1180,11 @@ export function CoachApp() {
     setSyncReady(false);
     setSaveStatus('Local');
     setFeedback('Signed out. Log in to restore saved progress, or continue as guest.');
-    await signOut({ redirectUrl: '/sign-in' });
+    console.log('AUTH_REDIRECT_BEFORE_SIGN_IN', {
+      authState: { status: 'unauthenticated', user: null, isGuest: false },
+      signedOutLocally: true,
+    });
+    window.location.assign('/sign-in');
   }
 
   function useThreeDaySprint() {
@@ -1960,10 +2043,7 @@ export function CoachApp() {
     <div className="chips authControls">
       {authState.status === 'loading' && <span className="chip">Checking account</span>}
       {authState.status === 'authenticated' && (
-        <>
-          <UserButton afterSignOutUrl="/" />
-          <button className="secondary compactButton" onClick={handleSignOut}>Logout</button>
-        </>
+        <button className="secondary compactButton" onClick={handleSignOut}>Logout</button>
       )}
       {authState.status === 'guest' && (
         <>
@@ -2214,7 +2294,6 @@ export function CoachApp() {
               <div className="chips">
                 <button className="danger" onClick={clearAllData}>Reset data</button>
                 <button className="secondary compactButton" onClick={() => importInputRef.current?.click()}>Import backup</button>
-                <UserButton afterSignOutUrl="/" />
                 <button className="secondary compactButton" onClick={handleSignOut}>Sign out / switch account</button>
               </div>
             </div>

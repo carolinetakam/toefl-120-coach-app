@@ -19,10 +19,17 @@ describe('auth entry routes', () => {
     expect(authEntryPanel).toContain('path="/sign-up"');
   });
 
-  it('keeps a visible loading/recovery panel while Clerk mounts', () => {
+  it('keeps passive helper copy while Clerk mounts', () => {
     expect(signInPage).toContain('<AuthEntryPanel mode="sign-in" />');
     expect(signUpPage).toContain('<AuthEntryPanel mode="sign-up" />');
-    expect(authEntryPanel).toContain('Loading secure sign-in.');
-    expect(authEntryPanel).toContain('Sign-in form is still loading.');
+    expect(authEntryPanel).toContain('authPassiveHelper');
+    expect(authEntryPanel).toContain('Secure sign-in is loading.');
+    expect(authEntryPanel).not.toContain('Sign-in form is still loading.');
+  });
+
+  it('starts guest mode through an explicit root query', () => {
+    expect(signInPage).toContain('href="/?guest=1"');
+    expect(signUpPage).toContain('href="/?guest=1"');
+    expect(authEntryPanel).toContain('href="/?guest=1"');
   });
 });

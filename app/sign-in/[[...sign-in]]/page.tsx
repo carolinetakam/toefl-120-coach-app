@@ -13,7 +13,7 @@ export default function SignInPage() {
             <p>If the form stays blank, refresh this page once. If it still does not load, continue as guest and tell support your browser.</p>
             <div className="chips">
               <Link className="authFallbackLink" href="/sign-up">Create account</Link>
-              <Link className="authFallbackLink" href="/">Continue as guest</Link>
+              <Link className="authFallbackLink" href="/?guest=1">Continue as guest</Link>
             </div>
           </div>
         </div>

@@ -21,7 +21,7 @@ describe('root app recovery boundary', () => {
   });
 
   it('clears local guest recovery state after Clerk signs in', () => {
-    expect(coachAppSource).toContain("if (isSignedIn && userId && (!signedOutLocally || guestSession || recoveryMode)) return { status: 'authenticated'");
+    expect(coachAppSource).toContain("if (isSignedIn && userId) return { status: 'authenticated'");
     expect(coachAppSource).toContain('window.localStorage.removeItem(guestSessionKey)');
     expect(coachAppSource).toContain('window.sessionStorage.removeItem(recoveryModeKey)');
     expect(coachAppSource).toContain("setFeedback('Signed in. Restoring cloud progress now.')");
@@ -31,7 +31,29 @@ describe('root app recovery boundary', () => {
   it('routes signed-out root sessions back to the dedicated sign-in page', () => {
     expect(coachAppSource).toContain("if (authState.status !== 'unauthenticated') return;");
     expect(coachAppSource).toContain("window.location.assign('/sign-in')");
-    expect(coachAppSource).toContain("await signOut({ redirectUrl: '/sign-in' });");
+    expect(coachAppSource).toContain("url.searchParams.get('guest') !== '1'");
+    expect(coachAppSource).toContain("window.history.replaceState(null, '', nextUrl || '/')");
+    expect(coachAppSource).toContain("console.log('AUTH_REDIRECT_BEFORE_SIGN_IN'");
+  });
+
+  it('waits for Clerk signOut before entering local signed-out mode', () => {
+    const handleSignOutSource = coachAppSource.slice(
+      coachAppSource.indexOf('async function handleSignOut'),
+      coachAppSource.indexOf('function useThreeDaySprint'),
+    );
+    expect(handleSignOutSource).toContain("console.log('AUTH_LOGOUT_BEFORE'");
+    expect(handleSignOutSource).toContain('await signOut();');
+    expect(handleSignOutSource).toContain('afterSignOutSnapshot = await waitForClerkSignedOut');
+    expect(handleSignOutSource).toContain("console.log('AUTH_LOGOUT_AFTER_SIGNOUT_RESOLVED'");
+    expect(handleSignOutSource.indexOf('await signOut();')).toBeLessThan(handleSignOutSource.indexOf('setSignedOutLocally(true);'));
+    expect(handleSignOutSource.indexOf('waitForClerkSignedOut')).toBeLessThan(handleSignOutSource.indexOf("window.location.assign('/sign-in')"));
+    expect(handleSignOutSource).not.toContain("signOut({ redirectUrl");
+  });
+
+  it('uses only the custom logout path inside the app shell', () => {
+    expect(coachAppSource).not.toContain('UserButton');
+    expect(coachAppSource).not.toContain('afterSignOutUrl');
+    expect(coachAppSource).toContain('onClick={handleSignOut}>Logout</button>');
   });
 
   it('checks restored cloud state before replacing the renderable workspace', () => {

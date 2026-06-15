@@ -12,33 +12,26 @@ interface AuthEntryPanelProps {
 
 export function AuthEntryPanel({ mode }: AuthEntryPanelProps) {
   const mountRef = useRef<HTMLDivElement | null>(null);
-  const [formReady, setFormReady] = useState(false);
-  const [slowLoad, setSlowLoad] = useState(false);
+  const clerkRef = useRef<HTMLDivElement | null>(null);
+  const [clerkRendered, setClerkRendered] = useState(false);
 
   useEffect(() => {
-    const container = mountRef.current;
+    const container = clerkRef.current;
     if (!container) return;
 
     const checkReady = () => {
-      const hasClerkForm = Boolean(
-        container.querySelector('input[name="identifier"], input[type="email"], input[type="password"], [data-clerk-element]'),
+      const hasClerkStep = Boolean(
+        container.querySelector('form, input, button, [data-clerk-element], [data-localization-key]'),
       );
-      setFormReady(hasClerkForm);
-      if (hasClerkForm) setSlowLoad(false);
+      setClerkRendered(hasClerkStep);
     };
 
     checkReady();
     const observer = new MutationObserver(checkReady);
     observer.observe(container, { childList: true, subtree: true });
-    const slowTimer = window.setTimeout(() => {
-      if (!container.querySelector('input[name="identifier"], input[type="email"], input[type="password"], [data-clerk-element]')) {
-        setSlowLoad(true);
-      }
-    }, 7000);
 
     return () => {
       observer.disconnect();
-      window.clearTimeout(slowTimer);
     };
   }, [mode]);
 
@@ -46,31 +39,23 @@ export function AuthEntryPanel({ mode }: AuthEntryPanelProps) {
 
   return (
     <div className="authFormSlot" ref={mountRef}>
-      {!formReady && (
-        <div className="authLoadingPanel" role="status" aria-live="polite">
-          <span className="kicker">Secure account</span>
-          <h2>{slowLoad ? 'Sign-in form is still loading.' : 'Loading secure sign-in.'}</h2>
-          <p>
-            {slowLoad
-              ? 'Refresh once, or use the account link below if your browser blocked the secure form.'
-              : 'The email form should appear here in a moment.'}
-          </p>
-          {slowLoad && (
-            <div className="chips">
-              <Link className="authFallbackLink" href={isSignIn ? '/sign-up' : '/sign-in'}>
-                {isSignIn ? 'Create account' : 'Log in instead'}
-              </Link>
-              <Link className="authFallbackLink" href="/">Continue as guest</Link>
-            </div>
-          )}
-        </div>
-      )}
-      <div className={formReady ? 'authClerkMount ready' : 'authClerkMount'}>
+      <div className="authClerkMount" ref={clerkRef}>
         {isSignIn ? (
           <SignIn path="/sign-in" routing="path" signUpUrl="/sign-up" fallbackRedirectUrl="/" />
         ) : (
           <SignUp path="/sign-up" routing="path" signInUrl="/sign-in" fallbackRedirectUrl="/" />
         )}
+      </div>
+      {!clerkRendered && (
+        <p className="authPassiveHelper" role="status" aria-live="polite">
+          Secure sign-in is loading. If the form stays blank after a refresh, continue as guest and tell support your browser.
+        </p>
+      )}
+      <div className="authPassiveLinks" aria-label="Auth alternatives">
+        <Link className="authFallbackLink" href={isSignIn ? '/sign-up' : '/sign-in'}>
+          {isSignIn ? 'Create account' : 'Log in instead'}
+        </Link>
+        <Link className="authFallbackLink" href="/?guest=1">Continue as guest</Link>
       </div>
     </div>
   );
