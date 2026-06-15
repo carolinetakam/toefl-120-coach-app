@@ -1587,8 +1587,8 @@ export function CoachApp() {
           {authControls}
           {!shouldBlockPersonalizedContent && (
             <div className="chips">
-              <button className="ghost compactButton" onClick={exportProgress}>Export</button>
-              <button className="secondary compactButton" onClick={() => importInputRef.current?.click()}>Import backup</button>
+              <button className="secondary compactButton" onClick={exportProgress}>Export</button>
+              <button className="secondary compactButton" onClick={() => importInputRef.current?.click()}>Import</button>
             </div>
           )}
         </div>
@@ -1670,6 +1670,7 @@ export function CoachApp() {
               <p className="copy">Signed in. Your onboarding and practice progress will sync after each save.</p>
               <div className="chips">
                 <button className="danger" onClick={clearAllData}>Reset data</button>
+                <button className="secondary compactButton" onClick={() => importInputRef.current?.click()}>Import backup</button>
                 <UserButton afterSignOutUrl="/" />
                 <button className="secondary compactButton" onClick={handleSignOut}>Sign out / switch account</button>
               </div>
