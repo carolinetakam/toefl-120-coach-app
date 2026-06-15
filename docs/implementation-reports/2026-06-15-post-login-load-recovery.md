@@ -7,7 +7,7 @@ Owner/agent: Codex
 
 ## 1. Status
 
-Implemented locally, verified by automated gates and local production HTTP smoke. Pending push/deploy and real-account production retest.
+Implemented, pushed, deployed, and verified by automated gates plus local/production HTTP smoke. Real-account production retest remains required.
 
 ## 2. Objective
 
@@ -41,12 +41,17 @@ Production `/sign-in` was already verified to return HTTP 200 and render Clerk e
   - `/sign-in` returned HTTP 200.
   - `/sign-in` server HTML includes the non-loop recovery copy.
   - Built HTML includes the new route/global error chunks.
+- Production smoke after `52f2e4f` deploy:
+  - `https://score120coach.com/` returned HTTP 200.
+  - `https://score120coach.com/sign-in` returned HTTP 200.
+  - `https://score120coach.com/api/readiness` returned `ready:true`.
+  - Live JS includes the new route/global recovery screen text and the updated app bundle.
 
 ## 7. What remains unverified
 
 - Real production login with valid credentials.
 - Whether the user's exact post-login failure is caused by Convex auth/token setup, malformed stored state, or another signed-in app-shell exception.
-- Production deployment smoke after push.
+- Real-account production retest after deploy.
 
 ## 8. Beta/onboarding decision
 
@@ -58,4 +63,4 @@ The error boundary is intentionally generic and does not expose raw error detail
 
 ## 10. Next smallest useful step
 
-Push to `main`, wait for Vercel deployment, then retest `https://score120coach.com/sign-in` with the affected private-browser account and record the exact URL/error if the recovery screen appears.
+Retest `https://score120coach.com/sign-in` with the affected private-browser account and record the exact URL/error if the recovery screen appears.

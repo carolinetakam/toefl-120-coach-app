@@ -37,7 +37,7 @@ Addendum 2026-06-15 23:24 KST: after the user reported login still did not move 
 
 Addendum 2026-06-15 23:35 KST: after the user reported a `/sign-in` -> home -> `/sign-in` loop, the popup fallback path was removed in `docs/implementation-reports/2026-06-15-auth-redirect-loop-fix.md`. `/sign-in` and `/sign-up` no longer link back to `/?auth=...`, and the home page no longer auto-opens Clerk modal auth from that query string. Production smoke verified the loop path is removed. Retest with a real production account before clearing the auth/sync blocker.
 
-Addendum 2026-06-15 23:50 KST: after the user reported that private browsing loads but post-login says the page could not load, local recovery hardening was added in `docs/implementation-reports/2026-06-15-post-login-load-recovery.md`. Signed-in cloud restore now degrades to `Sync offline` local practice if cloud state cannot be sanitized, and route/global error boundaries show retry/back/support actions for app-shell crashes. Automated gates and local production HTTP smoke pass. Push/deploy and real-account production retest remain required.
+Addendum 2026-06-15 23:50 KST: after the user reported that private browsing loads but post-login says the page could not load, recovery hardening was added in `docs/implementation-reports/2026-06-15-post-login-load-recovery.md`. Signed-in cloud restore now degrades to `Sync offline` local practice if cloud state cannot be sanitized, and route/global error boundaries show retry/back/support actions for app-shell crashes. Commit `52f2e4f` was pushed to `main`; automated gates plus local and production HTTP smoke pass. Real-account production retest remains required.
 
 ## Current launch decision
 
