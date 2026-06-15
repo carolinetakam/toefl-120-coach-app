@@ -7,7 +7,7 @@ Owner/agent: Codex
 
 ## 1. Status
 
-Done locally, pending production verification after push.
+Done and production redirect-loop smoke passed.
 
 ## 2. Objective
 
@@ -41,10 +41,13 @@ User screenshot showed the `/sign-in` page left-side copy rendering while the Cl
   - `/sign-in` no longer contains `open the login popup`;
   - `/sign-in` shows `If the form stays blank`;
   - `/?auth=sign-in` stays on home and does not open modal auth.
+- Production smoke after deploy:
+  - `https://score120coach.com/sign-in` shows the non-loop recovery panel;
+  - `https://score120coach.com/sign-in` no longer contains `open the login popup`;
+  - `https://score120coach.com/?auth=sign-in` no longer auto-opens Clerk modal auth.
 
 ## 7. What remains unverified
 
-- Production deploy and production loop retest.
 - Real-account login with valid credentials.
 - Signed-in Convex sync restore.
 

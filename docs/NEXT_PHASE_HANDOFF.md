@@ -35,7 +35,7 @@ Addendum 2026-06-15 23:25 KST: after the user reported the auth page said it cou
 
 Addendum 2026-06-15 23:24 KST: after the user reported login still did not move forward, app-shell auth entry controls were hardened in `docs/implementation-reports/2026-06-15-auth-entry-link-hardening.md`. `Log In`, `Create Account`, and `Create beta account / Sign in` now render as real `/sign-in` and `/sign-up` links instead of relying on client `router.push()` handlers. Production smoke verifies the links reach Clerk auth pages and Clerk responds to a fake email. Retest with a real production account before clearing any auth/sync blocker.
 
-Addendum 2026-06-15 23:35 KST: after the user reported a `/sign-in` -> home -> `/sign-in` loop, the popup fallback path was removed locally in `docs/implementation-reports/2026-06-15-auth-redirect-loop-fix.md`. `/sign-in` and `/sign-up` no longer link back to `/?auth=...`, and the home page no longer auto-opens Clerk modal auth from that query string. Deploy and retest the affected browser before clearing the auth-entry blocker.
+Addendum 2026-06-15 23:35 KST: after the user reported a `/sign-in` -> home -> `/sign-in` loop, the popup fallback path was removed in `docs/implementation-reports/2026-06-15-auth-redirect-loop-fix.md`. `/sign-in` and `/sign-up` no longer link back to `/?auth=...`, and the home page no longer auto-opens Clerk modal auth from that query string. Production smoke verified the loop path is removed. Retest with a real production account before clearing the auth/sync blocker.
 
 ## Current launch decision
 
