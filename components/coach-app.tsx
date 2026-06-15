@@ -7,6 +7,7 @@ import { api } from '@/convex/_generated/api';
 import { formatProgressBackup, parseProgressBackup } from '@/lib/backup';
 import { buildRepairNote, getMockQuestionMetadata, getMockTestMetadata, getPracticeCardMetadata } from '@/lib/content-metadata';
 import { dateAfterDays } from '@/lib/dates';
+import { canPromoteLocalStateToCloud, LOCAL_SYNC_OWNER_KEY, localStateBelongsToAnotherUser } from '@/lib/sync-ownership';
 import { buildPersonalProofGate, getFirstUserLoopSteps, hasUserProgress } from '@/lib/first-user-loop';
 import { getDiagnosticQuestions, getNextDiagnosticFormId } from '@/lib/diagnostic';
 import { applyPracticeOutcome, buildErrorEntry, buildReviewCard, getLocalDateKey, nextInterval, prioritizePracticeCards, readinessScore, scoreDiagnostic, updateStreak, updateSubskillScores } from '@/lib/logic';
@@ -215,6 +216,28 @@ function latestMiniMockAttempt(attempts: MiniMockAttempt[]) {
   return [...attempts].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())[0];
 }
 
+function getLocalSyncOwner() {
+  if (typeof window === 'undefined') return null;
+  return window.localStorage.getItem(LOCAL_SYNC_OWNER_KEY);
+}
+
+function setLocalSyncOwner(userId: string | null | undefined) {
+  if (typeof window === 'undefined') return;
+  if (userId) {
+    window.localStorage.setItem(LOCAL_SYNC_OWNER_KEY, userId);
+    return;
+  }
+  window.localStorage.removeItem(LOCAL_SYNC_OWNER_KEY);
+}
+
+function clearLocalProgressForAccountExit() {
+  resetState();
+  setLocalSyncOwner(null);
+  if (typeof window !== 'undefined') {
+    window.localStorage.removeItem(diagnosticStartedAtKey);
+  }
+}
+
 function loadLaunchSmokeChecks(): LaunchSmokeChecks {
   if (typeof window === 'undefined') return defaultLaunchSmokeChecks;
   try {
@@ -285,9 +308,9 @@ export function CoachApp() {
   const chunksRef = useRef<Blob[]>([]);
   const localStateRef = useRef<AppState>(initialState);
   const authModeRef = useRef<string | undefined>(undefined);
-  const { isLoaded: authLoaded, isSignedIn } = useAuth();
-  const { openSignIn } = useClerk();
-  const authMode = authLoaded ? (isSignedIn ? 'signed-in' : 'signed-out') : 'loading';
+  const { isLoaded: authLoaded, isSignedIn, userId } = useAuth();
+  const { openSignIn, signOut } = useClerk();
+  const authMode = authLoaded ? (isSignedIn ? `signed-in:${userId ?? 'unknown'}` : 'signed-out') : 'loading';
   const convexState = useQuery(api.coach.getAppState, authLoaded && isSignedIn ? {} : 'skip');
   const saveConvexState = useMutation(api.coach.saveAppState);
   const deleteConvexData = useMutation(api.coach.deleteMyData);
@@ -340,23 +363,41 @@ export function CoachApp() {
     if (isSignedIn) {
       if (convexState === undefined) return;
       const remoteState = convexState ? sanitizeAppState(convexState.state) : null;
+      const localOwner = getLocalSyncOwner();
 
       if (remoteState && hasUserProgress(remoteState)) {
         setState(remoteState);
         saveState(remoteState);
+        setLocalSyncOwner(userId);
         setSaveStatus('Synced');
         setSyncReady(true);
         return;
       }
 
-      if (hasUserProgress(localState)) {
+      if (localStateBelongsToAnotherUser(localOwner, userId)) {
+        const cleanState = initialState;
+        localStateRef.current = cleanState;
+        setState(cleanState);
+        saveState(cleanState);
+        setLocalSyncOwner(userId);
+        setSaveStatus('Synced');
+        setFeedback('Signed in with a different account. Local progress from the previous account was not reused.');
+        setSyncReady(true);
+        return;
+      }
+
+      if (canPromoteLocalStateToCloud(hasUserProgress(localState), localOwner, userId)) {
         saveConvexState({ schemaVersion: 1, state: toPersistableState(localState) })
-          .then(() => setSaveStatus('Synced'))
+          .then(() => {
+            setLocalSyncOwner(userId);
+            setSaveStatus('Synced');
+          })
           .catch(() => setSaveStatus('Offline'))
           .finally(() => setSyncReady(true));
         return;
       }
 
+      setLocalSyncOwner(userId);
       setSaveStatus('Synced');
       setSyncReady(true);
       return;
@@ -364,7 +405,7 @@ export function CoachApp() {
 
     setSaveStatus('Local');
     setSyncReady(true);
-  }, [authLoaded, convexState, isSignedIn, ready, saveConvexState, syncReady]);
+  }, [authLoaded, convexState, isSignedIn, ready, saveConvexState, syncReady, userId]);
 
   useEffect(() => {
     if (!ready || !syncReady) return;
@@ -378,12 +419,15 @@ export function CoachApp() {
       }
 
       saveConvexState({ schemaVersion: 1, state: cleanState })
-        .then(() => setSaveStatus('Synced'))
+        .then(() => {
+          setLocalSyncOwner(userId);
+          setSaveStatus('Synced');
+        })
         .catch(() => setSaveStatus('Offline'));
     }, 500);
 
     return () => window.clearTimeout(timeout);
-  }, [isSignedIn, ready, saveConvexState, state, syncReady]);
+  }, [isSignedIn, ready, saveConvexState, state, syncReady, userId]);
 
   const dailyPlan = useMemo(() => generateDailyPlan(state), [state]);
   const todaySprint = useMemo(() => getTodaySprintDay(state), [state]);
@@ -627,6 +671,14 @@ export function CoachApp() {
 
   function openAccountSignIn() {
     openSignIn();
+  }
+
+  async function handleSignOut() {
+    clearLocalProgressForAccountExit();
+    setState(initialState);
+    setSyncReady(false);
+    setSaveStatus('Local');
+    await signOut({ redirectUrl: '/' });
   }
 
   function useThreeDaySprint() {
@@ -1304,7 +1356,12 @@ export function CoachApp() {
           <span className="mini">Progress controls</span>
           <div className="chips">
             {!isSignedIn && <button className="secondary compactButton" onClick={openAccountSignIn}>Sign in</button>}
-            {authLoaded && isSignedIn && <UserButton afterSignOutUrl="/" />}
+            {authLoaded && isSignedIn && (
+              <>
+                <UserButton afterSignOutUrl="/" />
+                <button className="secondary compactButton" onClick={handleSignOut}>Sign out / switch</button>
+              </>
+            )}
             <button className="ghost compactButton" onClick={exportProgress}>Export</button>
           </div>
         </div>
@@ -1365,6 +1422,7 @@ export function CoachApp() {
               <div className="chips">
                 <button className="danger" onClick={clearAllData}>Reset data</button>
                 <UserButton afterSignOutUrl="/" />
+                <button className="secondary compactButton" onClick={handleSignOut}>Sign out / switch account</button>
               </div>
             </div>
           )}

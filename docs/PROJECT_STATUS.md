@@ -1,0 +1,137 @@
+# TOEFL 120 Coach Project Status
+
+Last updated: 2026-06-14 01:54 KST  
+Repo: `/Users/carolinetakam/Documents/apps/toefl-120-coach-app-only`  
+Production URL: `https://score120coach.com`  
+Current branch: `main`  
+Current head when reviewed: `e5d3805 chore: trigger vercel deployment`
+
+## Executive status
+
+**Status: beta candidate, but not cleared for external beta onboarding yet.**
+
+The app is technically building, the local automated suite passes, production public routes are live, and `/api/readiness` reports environment readiness. The remaining blockers are **live/manual checks** that cannot be honestly claimed from code inspection alone:
+
+1. signed-in production sync smoke test with a real account — **failed on 2026-06-15 before the account-switch/local-owner patch; must be retested after deployment**;
+2. backup/export/reset/paste-import restore smoke test on production;
+3. real support email send/receive verification for `support@score120coach.com`.
+
+**Decision:** Caroline can use the app for founder/internal smoke testing now. Do **not** invite the first 5 external Korean beta learners until the three manual live checks above pass and are recorded in this document or a new implementation report.
+
+## What we originally set out to do
+
+From the architecture handoff and app audit, the first sale-ready path was not a rebuild. The target was the smallest reliable TOEFL learner loop:
+
+1. profile setup;
+2. diagnostic or mini mock;
+3. review;
+4. exact next drill;
+5. saved progress;
+6. production-safe beta onboarding with clear scoring limits.
+
+The roadmap also required low-cost deterministic behavior first: use existing seed content, strategy cards, static cues, rule-based scoring, and Convex/Clerk sync before adding AI scoring, payments, dashboards, or full generated mock tests.
+
+## Current product reality
+
+### Shipped / present
+
+- Next.js app router app with production routes for `/`, `/beta`, `/support`, `/privacy`, `/terms`, `/korea`.
+- Clerk auth integration and Convex signed-in full-state sync path.
+- Local guest mode with browser storage.
+- Onboarding profile inputs: target score, test date, daily minutes, confidence by section.
+- Diagnostic across Reading, Listening, Speaking, and Writing.
+- Today/Path/Progress/Library-style learner flow in `components/coach-app.tsx`.
+- Progression lock logic in `lib/progression.ts`:
+  - diagnostic required before full library access;
+  - one repair/review signal required before mini mock proof;
+  - path days are current/completed/locked/optional based on saved evidence.
+- First-user proof loop helpers in `lib/first-user-loop.ts`.
+- Mini mock/practice seed content in `lib/mock-tests.ts` and `lib/seed.ts`.
+- TOEFL strategy layer in `lib/content-metadata.ts`, `lib/sprint.ts`, and UI wiring:
+  - approved seed metadata;
+  - strategy card IDs;
+  - cues, traps, timing, explanations, repair rules;
+  - strategy reveal/open behavior from Today.
+- Deterministic scoring/reporting; no official ETS score claim.
+- Launch readiness gate in `lib/launch-readiness.ts`.
+- Backup/restore support in `lib/backup.ts`.
+- Production readiness API: `app/api/readiness/route.ts`.
+
+### Not shipped / not production-cleared
+
+- No verified live signed-in sync smoke test from a real production account in this phase; Caroline reported on 2026-06-15 that progress survived refresh but did **not** restore in private browser, and another browser stayed trapped in an older test account with no obvious logout.
+- A patch now adds explicit sign out/switch controls and prevents one signed-in account from inheriting another account’s local browser progress. This must be deployed and retested before beta clearance.
+- No verified live backup/export/reset/paste-import restore smoke test in this phase.
+- No verified real support email send/receive loop in this phase.
+- Attempts are still primarily full-state/client-flow based, not a fully event-based immutable attempt engine.
+- Speaking recordings are not durable production uploads; current behavior is local/browser-oriented with checklist/self-rating fallback.
+- No AI gateway, token/cost dashboard, or model scoring pipeline yet. This is acceptable for beta because deterministic scoring is the current intended path.
+- No payments/subscriptions. This is intentionally deferred.
+- No full generated TOEFL mock-test system. This is intentionally deferred.
+
+## Verification status from this closeout
+
+Commands were run from `/Users/carolinetakam/Documents/apps/toefl-120-coach-app-only` with:
+
+```bash
+export PATH=/Users/carolinetakam/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:./node_modules/.bin:$PATH
+```
+
+| Gate | Result | Evidence |
+| --- | --- | --- |
+| Full Vitest suite | PASS | `vitest run` -> 24 test files passed, 117 tests passed |
+| TypeScript | PASS | `tsc --noEmit` completed before build |
+| ESLint | PASS | `eslint .` completed before build |
+| Production build | PASS | `next build --webpack` compiled and generated 9 static pages |
+| Production readiness API | PASS with manual checks still required | `https://score120coach.com/api/readiness` returned `ready:true`, `audit.ready:true`, `manualReviewRequired:true` |
+| Public production routes | PASS | `/`, `/beta`, `/support`, `/privacy`, `/terms`, `/korea` all returned HTTP 200 |
+
+Important tool note: `npm` was not available on the default shell PATH. Use the Node runtime path above and direct binaries (`vitest`, `tsc`, `eslint`, `next`) unless the shell PATH is fixed.
+
+## Can we onboard beta users?
+
+**External beta users: not yet.**
+
+The app is close, but beta onboarding should remain blocked until these are verified manually on production:
+
+- [ ] Real test account can sign in on `https://score120coach.com`.
+- [ ] Profile, diagnostic, and one mini mock can be completed in production.
+- [ ] Reload after signed-in work restores progress from Convex.
+- [ ] Backup/export or show-backup JSON works.
+- [ ] Reset progress works.
+- [ ] Paste/import backup restores the same meaningful state.
+- [ ] A real email sent to `support@score120coach.com` arrives in the monitored inbox.
+
+**Internal/founder testing: yes.** Use production now to complete the smoke checklist. If it passes, invite only the first 5 Korean learners as described in `docs/beta-operations.md`.
+
+## Current highest-risk areas
+
+1. **Manual production sync unknown:** Code and env are ready, but the real signed-in path still needs production browser verification.
+2. **Backup/reset trust unknown:** This is a learner trust feature; do not invite external users until restore is proven.
+3. **Support deliverability unknown:** Beta users need a real support path before invitation.
+4. **Full-state sync is transitional:** Good enough for first beta if smoke-tested; should become event-based before paid/public launch.
+5. **Speaking/audio durability:** Do not market durable audio review yet.
+
+## Canonical docs for agents
+
+Start with these instead of scanning every file:
+
+1. `AGENTS.md`
+2. `docs/PROJECT_STATUS.md` — this file, current precise state
+3. `docs/NEXT_PHASE_HANDOFF.md` — next steps to official launch
+4. `docs/implementation-reports/` — reports after each implementation phase
+5. `docs/beta-onboarding-agent-handoff.md`
+6. `docs/beta-operations.md`
+7. `docs/convex-production-plan.md`
+8. `docs/architecture/TOEFL_Coach_Architecture/APP_AUDIT.md`
+9. `docs/architecture/TOEFL_Coach_Architecture/REFACTOR_ROADMAP.md`
+
+## Rule going forward
+
+At the end of every build/implementation phase, update:
+
+1. `docs/PROJECT_STATUS.md` if the state changed;
+2. one new file under `docs/implementation-reports/YYYY-MM-DD-short-phase-name.md`;
+3. `docs/NEXT_PHASE_HANDOFF.md` if the next owner, blocker, or launch path changed.
+
+Use `docs/PHASE_CLOSEOUT_PROCESS.md` as the required template.

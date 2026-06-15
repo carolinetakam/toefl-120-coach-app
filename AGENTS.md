@@ -12,13 +12,26 @@ Any agent or chat working in this project should treat that folder as the primar
 
 Use the folder system, not a giant context dump:
 
-1. Read `docs/architecture/TOEFL_Coach_Architecture/README.md`.
-2. Read `docs/architecture/TOEFL_Coach_Architecture/FOLDER_SYSTEM_BLUEPRINT.md`.
-3. Read `docs/architecture/TOEFL_Coach_Architecture/APP_AUDIT.md`.
-4. Open only the task-specific architecture file needed for the current work.
-5. Inspect the current app source before proposing or making code changes.
+1. Read `docs/PROJECT_STATUS.md` for the current beta/launch state.
+2. Read `docs/NEXT_PHASE_HANDOFF.md` for the next owner path and official launch sequence.
+3. Read the latest relevant file in `docs/implementation-reports/` for the most recent implementation closeout.
+4. Read `docs/architecture/TOEFL_Coach_Architecture/README.md`.
+5. Read `docs/architecture/TOEFL_Coach_Architecture/FOLDER_SYSTEM_BLUEPRINT.md`.
+6. Read `docs/architecture/TOEFL_Coach_Architecture/APP_AUDIT.md`.
+7. Open only the task-specific architecture file needed for the current work.
+8. Inspect the current app source before proposing or making code changes.
 
 Do not load every architecture document by default.
+
+## Mandatory Phase Closeout
+
+At the end of every meaningful build, fix, deployment, smoke test, or product phase, follow `docs/PHASE_CLOSEOUT_PROCESS.md`:
+
+1. create a report under `docs/implementation-reports/YYYY-MM-DD-short-phase-name.md`;
+2. update `docs/PROJECT_STATUS.md` if readiness, blockers, verification, or shipped behavior changed;
+3. update `docs/NEXT_PHASE_HANDOFF.md` if the next owner, next step, blocker, or launch path changed;
+4. record exact tests/builds/production checks/manual checks run;
+5. never claim beta/public launch readiness unless the live checks were actually completed and recorded.
 
 For frontend/UI updates, also read:
 
