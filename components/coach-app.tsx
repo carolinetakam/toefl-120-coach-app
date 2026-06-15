@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { UserButton, useAuth, useClerk } from '@clerk/nextjs';
 import { useMutation, useQuery } from 'convex/react';
-import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { api } from '@/convex/_generated/api';
 import { BottleneckCard } from '@/components/coaching/bottleneck-card';
 import { CoachingSnapshot } from '@/components/coaching/coaching-snapshot';
@@ -481,7 +481,6 @@ export function CoachApp() {
   const previousAuthStatusRef = useRef<AuthStatus>('loading');
   const authFallbackOpenedRef = useRef(false);
   const { isLoaded: authLoaded, isSignedIn, userId } = useAuth();
-  const router = useRouter();
   const { openSignIn, openSignUp, signOut } = useClerk();
   const authMode = authLoaded ? (isSignedIn ? `signed-in:${userId ?? 'unknown'}` : 'signed-out') : 'loading';
   const authState: AuthState = useMemo(() => {
@@ -982,16 +981,6 @@ export function CoachApp() {
     setClockNow(startedAt);
     setState((prev) => ({ ...prev, onboarded: true }));
     setFeedback('Your TOEFL path is ready. First, we’ll find your fastest score improvement area.');
-  }
-
-  function openAccountSignIn() {
-    setSignedOutLocally(false);
-    router.push('/sign-in');
-  }
-
-  function openAccountSignUp() {
-    setSignedOutLocally(false);
-    router.push('/sign-up');
   }
 
   function continueAsGuest() {
@@ -1892,15 +1881,15 @@ export function CoachApp() {
       {authState.status === 'guest' && (
         <>
           <span className="pill-warn">Guest</span>
-          <button className="secondary compactButton" onClick={openAccountSignIn}>Log In</button>
-          <button className="cta compactButton" onClick={openAccountSignUp}>Create Account</button>
+          <Link className="secondary compactButton" href="/sign-in">Log In</Link>
+          <Link className="cta compactButton" href="/sign-up">Create Account</Link>
         </>
       )}
       {authState.status === 'unauthenticated' && (
         <>
-          <button className="secondary compactButton" onClick={openAccountSignIn}>Log In</button>
+          <Link className="secondary compactButton" href="/sign-in">Log In</Link>
           <button className="ghost compactButton" onClick={continueAsGuest}>Continue as Guest</button>
-          <button className="cta compactButton" onClick={openAccountSignUp}>Create Account</button>
+          <Link className="cta compactButton" href="/sign-up">Create Account</Link>
         </>
       )}
     </div>
@@ -1918,9 +1907,9 @@ export function CoachApp() {
       </div>
       {authState.status === 'unauthenticated' && (
         <div className="chips centerActions">
-          <button className="cta" onClick={openAccountSignIn}>Log In</button>
+          <Link className="cta" href="/sign-in">Log In</Link>
           <button className="secondary" onClick={continueAsGuest}>Continue as Guest</button>
-          <button className="ghost" onClick={openAccountSignUp}>Create Account</button>
+          <Link className="ghost" href="/sign-up">Create Account</Link>
         </div>
       )}
     </section>
@@ -1929,8 +1918,8 @@ export function CoachApp() {
     <section className="sectionCard row guestBanner" aria-label="Guest mode">
       <p className="copy">Guest mode: your progress stays on this device. Log in to save your TOEFL path across browsers.</p>
       <div className="chips">
-        <button className="secondary compactButton" onClick={openAccountSignIn}>Log In</button>
-        <button className="cta compactButton" onClick={openAccountSignUp}>Create Account</button>
+        <Link className="secondary compactButton" href="/sign-in">Log In</Link>
+        <Link className="cta compactButton" href="/sign-up">Create Account</Link>
       </div>
     </section>
   ) : null;
@@ -2115,7 +2104,7 @@ export function CoachApp() {
           {!isSignedIn && (
             <div className="sectionCard row">
               <p className="copy">Guest mode is for preview only. Beta users should sign in with the same email they use for support, sync, deletion, and scoring questions.</p>
-              <button className="secondary" onClick={openAccountSignIn}>Create beta account / Sign in</button>
+              <Link className="secondary" href="/sign-in">Create beta account / Sign in</Link>
             </div>
           )}
           {authLoaded && isSignedIn && (

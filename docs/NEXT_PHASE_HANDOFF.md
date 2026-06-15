@@ -33,6 +33,8 @@ Addendum 2026-06-15 23:14 KST: after the user reported they could not log into t
 
 Addendum 2026-06-15 23:25 KST: after the user reported the auth page said it could not be loaded, a fallback patch added visible links from `/sign-in` and `/sign-up` to `/?auth=sign-in` and `/?auth=sign-up`, which open Clerk's modal auth surface from the home page. Local typecheck, focused lint, build, and fallback routing smoke pass. Deploy and production fallback smoke are the next check.
 
+Addendum 2026-06-15 23:24 KST: after the user reported login still did not move forward, app-shell auth entry controls were hardened in `docs/implementation-reports/2026-06-15-auth-entry-link-hardening.md`. `Log In`, `Create Account`, and `Create beta account / Sign in` now render as real `/sign-in` and `/sign-up` links instead of relying on client `router.push()` handlers. After deploy, retest with a real production account before clearing any auth/sync blocker.
+
 ## Current launch decision
 
 - **Founder/internal smoke:** allowed now.
