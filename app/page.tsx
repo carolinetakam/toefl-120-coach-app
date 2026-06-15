@@ -1,5 +1,5 @@
-import { CoachApp } from '@/components/coach-app';
+import { CoachAppBoundary } from '@/components/coach-app-boundary';
 
 export default function HomePage() {
-  return <CoachApp />;
+  return <CoachAppBoundary />;
 }

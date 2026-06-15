@@ -102,6 +102,8 @@ const diagnosticStartedAtKey = 'toefl-120-coach-diagnostic-started-at';
 const launchSmokeChecksKey = 'toefl-120-coach-launch-smoke-checks';
 const guestSessionKey = 'toefl-120-coach-guest-session';
 const coachPreferencesKey = 'toefl-120-coach-preferences';
+const recoveryModeKey = 'toefl-120-coach-recovery-mode';
+const recoveryAttemptedKey = 'toefl-120-coach-recovery-attempted';
 const speakingRecordingLimitSeconds = 60;
 const microphoneBlockedFallbackMessage = 'Microphone access is blocked. You can still practice using Self-Rating Mode, or enable microphone access to record your answer.';
 const defaultCoachPreferences: CoachPreferences = {
@@ -411,6 +413,7 @@ export function CoachApp() {
   const [syncReady, setSyncReady] = useState(false);
   const [guestSession, setGuestSession] = useState<GuestSession | null>(null);
   const [signedOutLocally, setSignedOutLocally] = useState(false);
+  const [recoveryMode, setRecoveryMode] = useState(false);
   const [authCheckTimedOut, setAuthCheckTimedOut] = useState(false);
   const [tab, setTab] = useState<TabKey>('today');
   const [section, setSection] = useState<Section>('reading');
@@ -485,10 +488,11 @@ export function CoachApp() {
   const authMode = authLoaded ? (isSignedIn ? `signed-in:${userId ?? 'unknown'}` : 'signed-out') : 'loading';
   const authState: AuthState = useMemo(() => {
     if (!ready || (!authLoaded && !authCheckTimedOut)) return { status: 'loading', user: null, isGuest: false };
+    if (recoveryMode && guestSession) return { status: 'guest', user: null, isGuest: true };
     if (!signedOutLocally && isSignedIn && userId) return { status: 'authenticated', user: { id: userId }, isGuest: false };
     if (guestSession) return { status: 'guest', user: null, isGuest: true };
     return { status: 'unauthenticated', user: null, isGuest: false };
-  }, [authCheckTimedOut, authLoaded, guestSession, isSignedIn, ready, signedOutLocally, userId]);
+  }, [authCheckTimedOut, authLoaded, guestSession, isSignedIn, ready, recoveryMode, signedOutLocally, userId]);
   const convexState = useQuery(api.coach.getAppState, authState.status === 'authenticated' ? {} : 'skip');
   const saveConvexState = useMutation(api.coach.saveAppState);
   const deleteConvexData = useMutation(api.coach.deleteMyData);
@@ -529,7 +533,22 @@ export function CoachApp() {
   }, [authLoaded, isSignedIn, userId]);
 
   useEffect(() => {
-    setGuestSession(getGuestSession());
+    const shouldRecover = window.sessionStorage.getItem(recoveryModeKey) === '1';
+    if (shouldRecover) {
+      resetState();
+      setLocalSyncOwner(null);
+      window.localStorage.removeItem(diagnosticStartedAtKey);
+      const nextGuestSession = createGuestSession();
+      window.localStorage.setItem(guestSessionKey, JSON.stringify(nextGuestSession));
+      window.sessionStorage.removeItem(recoveryModeKey);
+      setSignedOutLocally(true);
+      setRecoveryMode(true);
+      setGuestSession(nextGuestSession);
+      setFeedback('Safe mode started. Cloud progress was not deleted; local browser state was reset.');
+    } else {
+      window.sessionStorage.removeItem(recoveryAttemptedKey);
+      setGuestSession(getGuestSession());
+    }
     setLaunchSmokeChecks(loadLaunchSmokeChecks());
     setReady(true);
   }, []);
