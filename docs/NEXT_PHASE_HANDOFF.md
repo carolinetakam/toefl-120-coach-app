@@ -1,6 +1,6 @@
 # Next Phase Handoff: Beta Clearance to Official Launch
 
-Last updated: 2026-06-15 12:28 KST
+Last updated: 2026-06-15 13:10 KST
 Project: TOEFL 120 Coach  
 Repo: `/Users/carolinetakam/Documents/apps/toefl-120-coach-app-only`  
 Production: `https://score120coach.com`
@@ -9,7 +9,7 @@ Production: `https://score120coach.com`
 
 The codebase is a working beta candidate. Automated local gates pass and production public routes are live. The next phase is **not more feature building first**. The next phase is clearing the manual production trust gates, inviting a tiny beta cohort, then hardening only what real beta use exposes.
 
-**Current priority blocker:** the signed-in production sync smoke failed on 2026-06-15. Read `docs/LIVE_SYNC_SMOKE_HANDOFF.md` before any beta-clearance work. A patch was pushed in `126978b`; the next owner must confirm the deployed site shows the new account-switch UI and then rerun the same-account private-browser restore test.
+**Current priority blocker:** the signed-in production sync smoke failed on 2026-06-15. Root cause was found in production Convex logs: `coach:saveAppState` was called but rejected by argument validation because the deployed validator did not accept `state.diagnosticFormId` and `state.speakingAttempts[].hasAudioEvidence`. Convex production was redeployed with the current validator and a backend-only save/restore shape check passed. The next owner must deploy the frontend instrumentation if not already deployed, then rerun the full same-account and different-account browser matrix.
 
 ## Current launch decision
 
@@ -48,6 +48,19 @@ Prove that real users can safely sign in, complete the first TOEFL loop, recover
 13. Confirm the email arrives in the monitored inbox.
 14. Record results in a new `docs/implementation-reports/YYYY-MM-DD-production-smoke.md` file.
 15. Update `docs/PROJECT_STATUS.md`.
+
+### Sync-specific retest before beta clearance
+
+Use `docs/implementation-reports/2026-06-15-production-sync-validator-fix.md` as the latest source of truth. The next test must prove:
+
+1. User A in normal Chrome can sign in, complete onboarding/diagnostic, and reach `Save Synced`.
+2. User A in Chrome after refresh keeps progress.
+3. User A in incognito restores progress and skips onboarding.
+4. User A in Safari restores progress and skips onboarding.
+5. User B signs in and sees no User A data.
+6. User A signs out and signs back in, then sees restored progress.
+
+Keep beta blocked if any browser still shows onboarding for User A after `Save Synced`, if `Save Offline` appears, or if User B sees User A data.
 
 ### Pass criteria
 

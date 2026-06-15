@@ -1,10 +1,10 @@
 # TOEFL 120 Coach Project Status
 
-Last updated: 2026-06-15 12:28 KST
+Last updated: 2026-06-15 13:10 KST
 Repo: `/Users/carolinetakam/Documents/apps/toefl-120-coach-app-only`  
 Production URL: `https://score120coach.com`  
 Current branch: `main`  
-Current head when reviewed: `126978b fix: add account switch and sync ownership guard`
+Current head when reviewed: local changes after `5be3ea0 docs: add live sync smoke handoff`
 
 ## Executive status
 
@@ -12,7 +12,7 @@ Current head when reviewed: `126978b fix: add account switch and sync ownership 
 
 The app is technically building, the local automated suite passes, production public routes are live, and `/api/readiness` reports environment readiness. The remaining blockers are **live/manual checks** that cannot be honestly claimed from code inspection alone:
 
-1. signed-in production sync smoke test with a real account — **failed on 2026-06-15 before the account-switch/local-owner patch; must be retested after deployment**;
+1. signed-in production sync smoke test with a real account — **failed on 2026-06-15 because Convex production rejected saved app state fields; backend validator fix deployed, full browser/account matrix still must be retested**;
 2. backup/export/reset/paste-import restore smoke test on production;
 3. real support email send/receive verification for `support@score120coach.com`.
 
@@ -60,7 +60,8 @@ The roadmap also required low-cost deterministic behavior first: use existing se
 ### Not shipped / not production-cleared
 
 - No verified live signed-in sync smoke test from a real production account in this phase; Caroline reported on 2026-06-15 that progress survived refresh but did **not** restore in private browser, and another browser stayed trapped in an older test account with no obvious logout.
-- A patch now adds explicit sign out/switch controls and prevents one signed-in account from inheriting another account’s local browser progress. This must be deployed and retested before beta clearance.
+- Root cause found: production `coach:saveAppState` mutations reached Convex but failed argument validation because the deployed backend validator did not accept `state.diagnosticFormId` and `state.speakingAttempts[].hasAudioEvidence`. Convex production was redeployed with the current validator and a backend-only synthetic save/restore check passed.
+- A patch now adds explicit sign out/switch controls and prevents one signed-in account from inheriting another account’s local browser progress. The live browser/account matrix still must be retested before beta clearance.
 - No verified live backup/export/reset/paste-import restore smoke test in this phase.
 - No verified real support email send/receive loop in this phase.
 - Attempts are still primarily full-state/client-flow based, not a fully event-based immutable attempt engine.
@@ -79,12 +80,14 @@ export PATH=/Users/carolinetakam/.cache/codex-runtimes/codex-primary-runtime/dep
 
 | Gate | Result | Evidence |
 | --- | --- | --- |
-| Full Vitest suite | PASS | `vitest run` -> 24 test files passed, 117 tests passed |
+| Full Vitest suite | PASS | `vitest run` -> 25 test files passed, 121 tests passed |
 | TypeScript | PASS | `tsc --noEmit` completed before build |
 | ESLint | PASS | `eslint .` completed before build |
 | Production build | PASS | `next build --webpack` compiled and generated 9 static pages |
 | Production readiness API | PASS with manual checks still required | `https://score120coach.com/api/readiness` returned `ready:true`, `audit.ready:true`, `manualReviewRequired:true` |
 | Public production routes | PASS | `/`, `/beta`, `/support`, `/privacy`, `/terms`, `/korea` all returned HTTP 200 |
+| Convex production validator deploy | PASS | `convex deploy --env-file /tmp/toefl-convex-prod.env --message "fix app state validator for production sync"` deployed to `brainy-chicken-240` |
+| Backend-only sync shape smoke | PASS | Synthetic `coach:saveAppState` + `coach:getAppState` accepted `diagnosticFormId`, `hasAudioEvidence`, and `miniMockAttempts`; synthetic app snapshot was deleted |
 
 Important tool note: `npm` was not available on the default shell PATH. Use the Node runtime path above and direct binaries (`vitest`, `tsc`, `eslint`, `next`) unless the shell PATH is fixed.
 
@@ -106,7 +109,7 @@ The app is close, but beta onboarding should remain blocked until these are veri
 
 ## Current highest-risk areas
 
-1. **Manual production sync unknown:** Code and env are ready, but the real signed-in path still needs production browser verification.
+1. **Manual production sync unknown:** The backend validator failure is fixed, but the real signed-in path still needs production browser verification across Chrome, incognito, Safari, sign-out/sign-in, and a different account.
 2. **Backup/reset trust unknown:** This is a learner trust feature; do not invite external users until restore is proven.
 3. **Support deliverability unknown:** Beta users need a real support path before invitation.
 4. **Full-state sync is transitional:** Good enough for first beta if smoke-tested; should become event-based before paid/public launch.
@@ -118,7 +121,7 @@ Start with these instead of scanning every file:
 
 1. `AGENTS.md`
 2. `docs/PROJECT_STATUS.md` — this file, current precise state
-3. `docs/LIVE_SYNC_SMOKE_HANDOFF.md` — current failed signed-in sync smoke, patch, and retest checklist
+3. `docs/implementation-reports/2026-06-15-production-sync-validator-fix.md` — current root cause, backend fix, evidence, and remaining browser matrix
 4. `docs/NEXT_PHASE_HANDOFF.md` — next steps to official launch
 5. `docs/implementation-reports/` — reports after each implementation phase
 6. `docs/beta-onboarding-agent-handoff.md`

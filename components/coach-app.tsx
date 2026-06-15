@@ -316,6 +316,14 @@ export function CoachApp() {
   const deleteConvexData = useMutation(api.coach.deleteMyData);
 
   useEffect(() => {
+    if (!authLoaded) return;
+    console.log('AUTH_STATE', {
+      userId,
+      isSignedIn: Boolean(isSignedIn),
+    });
+  }, [authLoaded, isSignedIn, userId]);
+
+  useEffect(() => {
     const localState = loadState();
     localStateRef.current = localState;
     setState(localState);
@@ -362,7 +370,11 @@ export function CoachApp() {
 
     if (isSignedIn) {
       if (convexState === undefined) return;
+      console.log('CLOUD_RESTORE_START');
       const remoteState = convexState ? sanitizeAppState(convexState.state) : null;
+      console.log('CLOUD_RESTORE_RESULT', {
+        hasState: Boolean(remoteState),
+      });
       const localOwner = getLocalSyncOwner();
 
       if (remoteState && hasUserProgress(remoteState)) {
@@ -387,12 +399,17 @@ export function CoachApp() {
       }
 
       if (canPromoteLocalStateToCloud(hasUserProgress(localState), localOwner, userId)) {
+        console.log('CLOUD_SAVE_START');
         saveConvexState({ schemaVersion: 1, state: toPersistableState(localState) })
           .then(() => {
             setLocalSyncOwner(userId);
             setSaveStatus('Synced');
+            console.log('CLOUD_SAVE_SUCCESS');
           })
-          .catch(() => setSaveStatus('Offline'))
+          .catch((error) => {
+            setSaveStatus('Offline');
+            console.log('CLOUD_SAVE_FAILED', error);
+          })
           .finally(() => setSyncReady(true));
         return;
       }
@@ -418,12 +435,17 @@ export function CoachApp() {
         return;
       }
 
+      console.log('CLOUD_SAVE_START');
       saveConvexState({ schemaVersion: 1, state: cleanState })
         .then(() => {
           setLocalSyncOwner(userId);
           setSaveStatus('Synced');
+          console.log('CLOUD_SAVE_SUCCESS');
         })
-        .catch(() => setSaveStatus('Offline'));
+        .catch((error) => {
+          setSaveStatus('Offline');
+          console.log('CLOUD_SAVE_FAILED', error);
+        });
     }, 500);
 
     return () => window.clearTimeout(timeout);

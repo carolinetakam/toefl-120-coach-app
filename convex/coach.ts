@@ -5,7 +5,22 @@ import type { MutationCtx, QueryCtx } from './_generated/server';
 
 async function getUserId(ctx: QueryCtx | MutationCtx) {
   const identity = await ctx.auth.getUserIdentity();
-  if (!identity) return null;
+  if (!identity) {
+    console.log('CONVEX_AUTH_STATE', {
+      operation: 'getUserId',
+      hasIdentity: false,
+      identifierUsed: 'tokenIdentifier',
+    });
+    return null;
+  }
+
+  console.log('CONVEX_AUTH_STATE', {
+    operation: 'getUserId',
+    hasIdentity: true,
+    identifierUsed: 'tokenIdentifier',
+    hasSubject: Boolean(identity.subject),
+    hasTokenIdentifier: Boolean(identity.tokenIdentifier),
+  });
 
   const existing = await ctx.db
     .query('users')
@@ -18,6 +33,14 @@ async function getUserId(ctx: QueryCtx | MutationCtx) {
 async function requireUser(ctx: MutationCtx) {
   const identity = await ctx.auth.getUserIdentity();
   if (!identity) throw new Error('Not authenticated');
+
+  console.log('CONVEX_AUTH_STATE', {
+    operation: 'requireUser',
+    hasIdentity: true,
+    identifierUsed: 'tokenIdentifier',
+    hasSubject: Boolean(identity.subject),
+    hasTokenIdentifier: Boolean(identity.tokenIdentifier),
+  });
 
   const existing = await ctx.db
     .query('users')
@@ -93,9 +116,20 @@ export const getAppState = query({
   args: {},
   handler: async (ctx) => {
     const userId = await getUserId(ctx);
-    if (!userId) return null;
+    if (!userId) {
+      console.log('CLOUD_RESTORE_BACKEND_RESULT', {
+        hasUser: false,
+        hasState: false,
+      });
+      return null;
+    }
 
-    return await ctx.db.query('appStates').withIndex('by_userId', (q) => q.eq('userId', userId)).unique();
+    const appState = await ctx.db.query('appStates').withIndex('by_userId', (q) => q.eq('userId', userId)).unique();
+    console.log('CLOUD_RESTORE_BACKEND_RESULT', {
+      hasUser: true,
+      hasState: Boolean(appState),
+    });
+    return appState;
   },
 });
 
@@ -108,13 +142,27 @@ export const saveAppState = mutation({
     const userId = await requireUser(ctx);
     const existing = await ctx.db.query('appStates').withIndex('by_userId', (q) => q.eq('userId', userId)).unique();
     const doc = { userId, schemaVersion: args.schemaVersion ?? 1, state: args.state, updatedAt: Date.now() };
+    console.log('CLOUD_SAVE_BACKEND_START', {
+      hasExistingState: Boolean(existing),
+      hasProfile: Boolean(args.state.profile),
+      diagnosticCompleted: Boolean(args.state.diagnosticCompleted),
+      progressCounts: {
+        practiceHistory: args.state.practiceHistory.length,
+        reviewQueue: args.state.reviewQueue.length,
+        miniMockAttempts: args.state.miniMockAttempts?.length ?? 0,
+      },
+      xp: args.state.xp,
+      streak: args.state.streak,
+    });
 
     if (existing) {
       await ctx.db.patch(existing._id, doc);
+      console.log('CLOUD_SAVE_BACKEND_SUCCESS', { mode: 'patch' });
       return doc.state;
     }
 
     await ctx.db.insert('appStates', doc);
+    console.log('CLOUD_SAVE_BACKEND_SUCCESS', { mode: 'insert' });
     return doc.state;
   },
 });

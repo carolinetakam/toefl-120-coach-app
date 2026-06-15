@@ -1,6 +1,6 @@
 # Live Signed-In Sync Smoke Handoff
 
-Last updated: 2026-06-15 12:28 KST  
+Last updated: 2026-06-15 13:10 KST
 Project: TOEFL 120 Coach  
 Repo: `/Users/carolinetakam/Documents/apps/toefl-120-coach-app-only`  
 Production URL: `https://score120coach.com`  
@@ -8,7 +8,7 @@ Current reviewed commit: `126978b fix: add account switch and sync ownership gua
 
 ## Executive status
 
-**Status: blocked / retest required.**
+**Status: backend root cause fixed / browser retest required.**
 
 Caroline ran the live signed-in production sync smoke and found a real beta blocker:
 
@@ -17,13 +17,15 @@ Caroline ran the live signed-in production sync smoke and found a real beta bloc
 3. In another browser, the app stayed signed into a previous test account.
 4. There was **no obvious logout/account-switch control** for Caroline to switch accounts cleanly.
 
-A local patch was implemented and pushed to `main` at commit `126978b`. The patch improves account switching and prevents cross-account local-progress contamination, but the signed-in production sync gate is **not passed** until the deployed site is retested in real browsers.
+A local patch was implemented and pushed to `main` at commit `126978b`. The patch improves account switching and prevents cross-account local-progress contamination.
+
+On the follow-up verification pass, production Convex logs showed the exact save failure: `coach:saveAppState` was called but rejected by argument validation because the deployed backend validator did not accept `state.diagnosticFormId` and then `state.speakingAttempts[].hasAudioEvidence`. Convex production was redeployed with the current validator, and a backend-only synthetic save/restore shape check passed. The signed-in production sync gate is **not passed** until the deployed site is retested in real browsers.
 
 ## Beta decision
 
 **Do not invite external beta users yet.**
 
-This blocks beta because a learner must be able to:
+This still blocks beta because a learner must be able to:
 
 - sign in;
 - complete profile/diagnostic/practice;
@@ -62,6 +64,23 @@ Founder/internal smoke testing may continue.
   - `docs/NEXT_PHASE_HANDOFF.md`
   - `docs/PHASE_CLOSEOUT_PROCESS.md`
   - `docs/implementation-reports/2026-06-15-production-sync-smoke-failure-patch.md`
+  - `docs/implementation-reports/2026-06-15-production-sync-validator-fix.md`
+
+## Verified root cause and backend fix
+
+Production Convex evidence before the fix:
+
+- `coach:getAppState` ran.
+- `coach:saveAppState` ran.
+- Saves failed with `ArgumentValidationError`.
+- Rejected fields included `state.diagnosticFormId` and `state.speakingAttempts[].hasAudioEvidence`.
+- Production data inspection showed no persisted app snapshots.
+
+Fix shipped:
+
+- Deployed current Convex backend to `brainy-chicken-240`.
+- Backend-only save/restore check passed with the previously rejected fields.
+- Synthetic app snapshot was deleted after the check.
 
 ## Verification already completed locally
 
@@ -97,7 +116,7 @@ Still unknown:
 
 - whether Vercel has deployed commit `126978b` yet;
 - whether same-account private-browser restore now works;
-- whether Clerk/Convex auth is correctly saving and reading `appStates` in production;
+- whether Clerk/Convex auth saves and reads `appStates` in a real browser session after the backend validator deploy;
 - whether `Save Synced` appears after profile/diagnostic completion;
 - whether account switching now works in the browser that was stuck on the old test account.
 
