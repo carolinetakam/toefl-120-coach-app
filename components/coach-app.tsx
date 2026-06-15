@@ -9,6 +9,9 @@ import { CoachingSnapshot } from '@/components/coaching/coaching-snapshot';
 import { NextActionCard } from '@/components/coaching/next-action-card';
 import { ScoreTrendCard } from '@/components/coaching/score-trend-card';
 import { WeeklyReportCard } from '@/components/coaching/weekly-report-card';
+import { AnswerComparisonCard } from '@/components/model-answer/answer-comparison-card';
+import { ETSExpectationsCard } from '@/components/model-answer/ets-expectations-card';
+import { ModelAnswerCard } from '@/components/model-answer/model-answer-card';
 import { formatProgressBackup, parseProgressBackup } from '@/lib/backup';
 import { buildCoachingProfile, type NextAction } from '@/lib/coaching';
 import { buildRepairNote, getMockQuestionMetadata, getMockTestMetadata, getPracticeCardMetadata } from '@/lib/content-metadata';
@@ -93,6 +96,7 @@ function isStrategyLayerCard(cardId: string) {
 
 const speakingChecks = ['Clear main idea', 'Source detail included', 'Finished cleanly'];
 const writingStructureChecks = ['Clear position or source relationship', 'One developed reason/detail', 'Clean final sentence'];
+const comparisonChecklist = ['Clear opinion', 'Complete response', 'Supporting details', 'Transitions', 'Conclusion'];
 const diagnosticStartedAtKey = 'toefl-120-coach-diagnostic-started-at';
 const launchSmokeChecksKey = 'toefl-120-coach-launch-smoke-checks';
 const guestSessionKey = 'toefl-120-coach-guest-session';
@@ -439,6 +443,7 @@ export function CoachApp() {
   const [taskStartedAt, setTaskStartedAt] = useState<number | null>(null);
   const [taskElapsedSnapshot, setTaskElapsedSnapshot] = useState(0);
   const [taskStructureChecks, setTaskStructureChecks] = useState<Record<string, boolean>>({});
+  const [comparisonChecks, setComparisonChecks] = useState<Record<string, boolean>>({});
   const [showReadinessReportText, setShowReadinessReportText] = useState(false);
   const [showFinalTemplateSheet, setShowFinalTemplateSheet] = useState(false);
   const [showBackupText, setShowBackupText] = useState(false);
@@ -1365,6 +1370,14 @@ export function CoachApp() {
 
   function hasTaskStructureCheck(cardId: string, check: string) {
     return Boolean(taskStructureChecks[`${cardId}:${check}`]);
+  }
+
+  function setComparisonCheck(taskId: string, check: string, checked: boolean) {
+    setComparisonChecks((prev) => ({ ...prev, [`${taskId}:${check}`]: checked }));
+  }
+
+  function getComparisonChecks(taskId: string) {
+    return Object.fromEntries(comparisonChecklist.map((check) => [check, Boolean(comparisonChecks[`${taskId}:${check}`])]));
   }
 
   function requireSprintPracticeCard(action: Extract<SprintAction | SprintNextAction, { type: 'practice' }>) {
@@ -2371,9 +2384,19 @@ export function CoachApp() {
                             <p>{currentCard.materials.template}</p>
                           </div>
                         )}
+                        <ETSExpectationsCard section="writing" />
+                        <ModelAnswerCard modelAnswer={currentCard.modelAnswer} />
                       </div>
                     ) : (
                       <>
+                    {preferences.showTemplates && currentCard.materials?.template && (
+                      <div className="subPanel stack">
+                        <span className="mini">Structure template</span>
+                        <p>{currentCard.materials.template}</p>
+                      </div>
+                    )}
+                    <ETSExpectationsCard section="writing" />
+                    <ModelAnswerCard modelAnswer={currentCard.modelAnswer} />
                     {showTaskTimerControls && (
                     <div className="sectionCard stack">
                       <div className="row">
@@ -2470,6 +2493,15 @@ export function CoachApp() {
                         </div>
                       </div>
                     )}
+                    {lastWritingEvaluation && (
+                      <AnswerComparisonCard
+                        learnerAnswer={writingDraft}
+                        modelAnswer={currentCard.modelAnswer}
+                        checklist={comparisonChecklist}
+                        checkedItems={getComparisonChecks(currentCard.id)}
+                        onToggle={(item, checked) => setComparisonCheck(currentCard.id, item, checked)}
+                      />
+                    )}
                   </div>
                 ) : (
                   <div className="stack">
@@ -2486,9 +2518,19 @@ export function CoachApp() {
                             <p>{currentCard.materials.template}</p>
                           </div>
                         )}
+                        <ETSExpectationsCard section="speaking" />
+                        <ModelAnswerCard modelAnswer={currentCard.modelAnswer} />
                       </div>
                     ) : (
                       <>
+                    {preferences.showTemplates && currentCard.materials?.template && (
+                      <div className="subPanel stack">
+                        <span className="mini">Structure template</span>
+                        <p>{currentCard.materials.template}</p>
+                      </div>
+                    )}
+                    <ETSExpectationsCard section="speaking" />
+                    <ModelAnswerCard modelAnswer={currentCard.modelAnswer} />
                     {showTaskTimerControls && (
                     <div className="sectionCard stack">
                       <div className="row">
@@ -2638,6 +2680,15 @@ export function CoachApp() {
                           ))}
                         </div>
                       </div>
+                    )}
+                    {lastSpeakingEvaluation && (
+                      <AnswerComparisonCard
+                        learnerAnswer={speakingNotes || (audioUrl ? 'Recorded answer saved as local audio evidence. Use playback above, then compare organization and completeness against the model.' : '')}
+                        modelAnswer={currentCard.modelAnswer}
+                        checklist={comparisonChecklist}
+                        checkedItems={getComparisonChecks(currentCard.id)}
+                        onToggle={(item, checked) => setComparisonCheck(currentCard.id, item, checked)}
+                      />
                     )}
                   </div>
                 )}
@@ -3018,12 +3069,8 @@ export function CoachApp() {
                           <p>{currentMock.speakingTask.template ?? currentMock.speakingTask.materials.template}</p>
                         </div>
                       )}
-                      {preferences.showExamples && currentMock.speakingTask.materials.exampleResponse && (
-                        <details className="subPanel">
-                          <summary>Example after you try</summary>
-                          <p className="copy">{currentMock.speakingTask.materials.exampleResponse}</p>
-                        </details>
-                      )}
+                      <ETSExpectationsCard section="speaking" />
+                      <ModelAnswerCard modelAnswer={currentMock.speakingTask.modelAnswer} />
 	                    <div className="sectionCard stack">
 	                      <div className="row">
 	                        <span>Recorded speaking evidence</span>
@@ -3059,6 +3106,15 @@ export function CoachApp() {
                         placeholder="Record in Practice > Speaking, then summarize timing, pauses, and clarity here."
                       />
                     </label>
+                    {mockSubmitted && (
+                      <AnswerComparisonCard
+                        learnerAnswer={mockSpeakingNotes || (hasSpeakingAudioEvidence ? 'Recorded practice audio evidence exists. Use playback from the speaking task, then compare organization and completeness against the model.' : '')}
+                        modelAnswer={currentMock.speakingTask.modelAnswer}
+                        checklist={comparisonChecklist}
+                        checkedItems={getComparisonChecks(`${currentMock.id}:speaking`)}
+                        onToggle={(item, checked) => setComparisonCheck(`${currentMock.id}:speaking`, item, checked)}
+                      />
+                    )}
                   </div>
                 </div>
 
@@ -3125,12 +3181,8 @@ export function CoachApp() {
                       <p>{currentMock.writingTask.template ?? currentMock.writingTask.materials.template}</p>
                     </div>
                   )}
-                  {preferences.showExamples && currentMock.writingTask.materials.exampleResponse && (
-                    <details className="subPanel">
-                      <summary>Example after you draft</summary>
-                      <p className="copy">{currentMock.writingTask.materials.exampleResponse}</p>
-                    </details>
-                  )}
+                  <ETSExpectationsCard section="writing" />
+                  <ModelAnswerCard modelAnswer={currentMock.writingTask.modelAnswer} />
                   {currentMockCanCollectWriting ? (
                     <>
                       <div className="sectionCard stack">
@@ -3151,6 +3203,15 @@ export function CoachApp() {
                         ))}
                       </div>
                       <textarea value={mockWriting} onChange={(event) => setMockWriting(event.target.value)} placeholder="Write your response here..." />
+                      {mockSubmitted && (
+                        <AnswerComparisonCard
+                          learnerAnswer={mockWriting}
+                          modelAnswer={currentMock.writingTask.modelAnswer}
+                          checklist={comparisonChecklist}
+                          checkedItems={getComparisonChecks(`${currentMock.id}:writing`)}
+                          onToggle={(item, checked) => setComparisonCheck(`${currentMock.id}:writing`, item, checked)}
+                        />
+                      )}
                     </>
                   ) : (
                     <p className="copy">Answer collection is disabled until this task has complete approved source material.</p>

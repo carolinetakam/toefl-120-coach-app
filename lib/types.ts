@@ -15,6 +15,13 @@ export interface IntegratedTaskMaterials {
   exampleResponse?: string;
 }
 
+export interface ModelAnswer {
+  scoreBand: string;
+  response: string;
+  strengths: string[];
+  structure: string[];
+}
+
 export interface ContentMetadata {
   contentId: string;
   section: Section;
@@ -64,6 +71,7 @@ export interface PracticeCard {
   responseMode?: ContentResponseMode;
   sourceMaterialCompleteness?: SourceMaterialCompleteness;
   materials?: IntegratedTaskMaterials;
+  modelAnswer?: ModelAnswer;
 }
 
 export interface ErrorEntry {

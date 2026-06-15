@@ -1,6 +1,6 @@
 # Next Phase Handoff: Beta Clearance to Official Launch
 
-Last updated: 2026-06-15 21:32 KST
+Last updated: 2026-06-15 22:11 KST
 Project: TOEFL 120 Coach  
 Repo: `/Users/carolinetakam/Documents/apps/toefl-120-coach-app-only`  
 Production: `https://score120coach.com`
@@ -22,6 +22,8 @@ Addendum 2026-06-15 15:34 KST: remaining P1 progress/completion UX is implemente
 Addendum 2026-06-15 16:25 KST: integrated speaking/writing materials, task timers, structure checklists, and local settings/preferences are implemented locally in `docs/implementation-reports/2026-06-15-integrated-materials-content-model.md`, `docs/implementation-reports/2026-06-15-timer-structure-tracker-ui.md`, and `docs/implementation-reports/2026-06-15-settings-preferences-ui.md`. These improve learner completion but do not change the beta-clearance gate; production signed-in sync, backup/reset/import, and support email checks remain required.
 
 Addendum 2026-06-15 21:32 KST: Coaching Intelligence Layer v1 is implemented locally in `docs/implementation-reports/2026-06-15-coaching-intelligence-layer-v1.md`. The deterministic module, unit/regression tests, Today cards, full automated gate, and local desktop/mobile guest browser QA pass. This does not clear beta; production signed-in coaching-card QA, sync, backup/reset/import, and support email checks remain required.
+
+Addendum 2026-06-15 22:11 KST: Model Answer & Compare Workflow v1 is implemented locally in `docs/implementation-reports/2026-06-15-model-answer-compare-workflow.md`. Speaking/Writing practice and mini mock tasks now expose static approved model answers in-task and checklist-only compare cards after submission. Automated gates and local guest browser QA pass. This does not clear beta; production signed-in sync, backup/reset/import, support email checks, and production deployment/signed-in display verification remain required.
 
 ## Current launch decision
 

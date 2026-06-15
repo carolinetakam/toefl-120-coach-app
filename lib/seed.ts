@@ -1,5 +1,5 @@
 import { dateAfterDays } from '@/lib/dates';
-import { AppState, DiagnosticQuestion, PracticeCard, ReviewCard, Section, UserProfile } from '@/lib/types';
+import { AppState, DiagnosticQuestion, ModelAnswer, PracticeCard, ReviewCard, Section, UserProfile } from '@/lib/types';
 
 export const sectionLabels: Record<Section, string> = {
   reading: 'Reading',
@@ -20,6 +20,24 @@ export const defaultProfile: UserProfile = {
     writing: 0,
   },
 };
+
+function speakingModel(response: string, structure: string[]): ModelAnswer {
+  return {
+    scoreBand: 'High 4/5 speaking signal',
+    response,
+    strengths: ['Answers the prompt immediately', 'Uses one clear support path', 'Keeps wording compact', 'Finishes with a complete thought'],
+    structure,
+  };
+}
+
+function writingModel(response: string, structure: string[]): ModelAnswer {
+  return {
+    scoreBand: 'High 4/5 writing signal',
+    response,
+    strengths: ['Clear task control', 'Specific support', 'Logical organization', 'Clean final connection'],
+    structure,
+  };
+}
 
 export const diagnosticQuestions: DiagnosticQuestion[] = [
   {
@@ -442,6 +460,10 @@ export const practiceCards: Record<Section, PracticeCard[]> = {
       subskill: 'fluency',
       prompt: 'Some students study best in a silent library, while others prefer a café or shared space. Which do you prefer and why? Answer in about 45 seconds with one clear reason and one example.',
       explanation: 'Strong answers take a position immediately, support it with one specific example, and avoid adding a second weak reason.',
+      modelAnswer: speakingModel(
+        'I prefer studying in a silent library because it helps me stay focused on difficult work. For example, when I prepare for a biology exam, I need to read diagrams and remember details, and background conversation makes me lose my place. In the library, I can finish one topic faster and check my notes more carefully. So for serious studying, a quiet library is much better for me than a café.',
+        ['Preference', 'Reason', 'Specific example', 'Final result'],
+      ),
       xp: 24,
       followUp: 'After recording, identify one place where you hesitated and rewrite that sentence more simply.',
     },
@@ -452,6 +474,10 @@ export const practiceCards: Record<Section, PracticeCard[]> = {
       subskill: 'timing control',
       prompt: 'Would you rather take an important class early in the morning or late in the afternoon? Give one main reason and one concrete example in 45 seconds.',
       explanation: 'Use a 10-second opening, 25-second example, and 5-second finish so you do not rush the ending.',
+      modelAnswer: speakingModel(
+        'I would rather take an important class early in the morning because my concentration is strongest then. For instance, in a math class I need to follow each step carefully, and after a long day I make small mistakes more often. If the class is early, I can listen actively and review the material before other assignments begin. That makes the morning schedule more useful for a difficult subject.',
+        ['Choice', 'Reason', 'Class example', 'Result'],
+      ),
       xp: 24,
       followUp: 'Estimate how many seconds you spent before reaching your example. Could you cut that by five seconds?',
     },
@@ -462,6 +488,10 @@ export const practiceCards: Record<Section, PracticeCard[]> = {
       subskill: 'organization',
       prompt: 'Reading: the university wants to expand the bike-share system to reduce traffic and parking pressure. Listening: a student supports the goal but argues the current station locations are too limited and helmets are hard to borrow. Summarize the proposal and the student’s response in 60 seconds.',
       explanation: 'Organize by source relationship: proposal point, student concern, then next proposal point, student concern.',
+      modelAnswer: speakingModel(
+        'The university proposes expanding the bike-share system to reduce traffic and parking pressure. The student agrees with the general goal, but he thinks the current plan has problems. First, the stations are too limited, so many students may not find a bike near their classes or dorms. Second, helmets are hard to borrow, which makes the system less practical and safe. Overall, he supports bike sharing but wants better locations and easier helmet access.',
+        ['Proposal', 'Student position', 'Problem one', 'Problem two', 'Overall response'],
+      ),
       xp: 26,
       followUp: 'Did you clearly separate the reading claims from the student’s objections?',
       responseMode: 'learner_answer',
@@ -479,6 +509,10 @@ export const practiceCards: Record<Section, PracticeCard[]> = {
       subskill: 'response structure',
       prompt: 'Lecture summary: the professor explains that bees communicate food location through movement patterns and then gives one example involving distance and another involving direction. Summarize the lecture in 60 seconds.',
       explanation: 'Use a short main idea sentence, then deliver the two examples in the same order the professor used.',
+      modelAnswer: speakingModel(
+        'The professor explains that bees communicate the location of food through movement patterns. One part of the movement can show distance, so other bees know whether the food source is nearby or farther away. Another part can show direction, which helps the bees travel toward the right area. These examples show that the movement is not random; it gives other bees practical information about where to find food.',
+        ['Main idea', 'Distance example', 'Direction example', 'Final meaning'],
+      ),
       xp: 26,
       followUp: 'Did your answer keep the lecture order, or did you jump between examples?',
       responseMode: 'learner_answer',
@@ -496,6 +530,10 @@ export const practiceCards: Record<Section, PracticeCard[]> = {
       subskill: 'clarity/pronunciation',
       prompt: 'Re-answer any earlier speaking card, but this time slow slightly, stress key nouns and verbs, and make every final word audible. Record and self-rate the result.',
       explanation: 'Clarity improves when ideas are slightly fewer but sentence endings are complete and emphasized.',
+      modelAnswer: speakingModel(
+        'I prefer studying in a silent library because difficult work needs full attention. For example, when I study science, I have to connect definitions with diagrams, and noise makes me reread the same line. In a quiet room, I can finish the task faster and remember the details better. For that reason, the library is the best place for serious studying.',
+        ['Direct answer', 'One reason', 'Controlled example', 'Audible final sentence'],
+      ),
       xp: 22,
       followUp: 'Which word endings disappeared in your first attempt and were clearer in the redo?',
     },
@@ -506,6 +544,10 @@ export const practiceCards: Record<Section, PracticeCard[]> = {
       subskill: 'source integration',
       prompt: 'Conversation summary: a student wants to add a class but cannot meet the advising deadline because of a regional sports trip. The advisor offers two options and explains why one is better. Summarize the problem and the recommended solution in 60 seconds.',
       explanation: 'Integrated speaking answers are stronger when you name the problem clearly, then explain the recommendation and reason without adding personal opinion.',
+      modelAnswer: speakingModel(
+        'The student wants to add a class, but he cannot meet the advising deadline because he will be away for a regional sports trip. The advisor gives him two options, but recommends the one that keeps his schedule official before he leaves. This is better because waiting until after the trip could make the class full or delay approval. So the student should handle the paperwork early and use the later option only if the first plan fails.',
+        ['Problem', 'Options', 'Recommended solution', 'Reason'],
+      ),
       xp: 24,
       followUp: 'Did you include both the problem and the reason the recommended solution is better?',
       responseMode: 'learner_answer',
@@ -523,6 +565,10 @@ export const practiceCards: Record<Section, PracticeCard[]> = {
       subskill: 'integrated speaking template',
       prompt: 'Use this optional scaffold for a 60-second integrated answer: “The reading announces ___. The student/professor agrees/disagrees because ___. First, ___. Second, ___. Overall, the listening shows ___.” Record a response to any earlier integrated prompt using only these five beats.',
       explanation: 'The template is a temporary rail, not a script to memorize. It protects source order, reasons, and a clean final sentence.',
+      modelAnswer: speakingModel(
+        'The reading announces a plan to expand the bike-share system. The student partly agrees because reducing traffic is a good goal, but he thinks the plan is incomplete. First, the current station locations are too limited, so many students may not find bikes where they need them. Second, helmets are hard to borrow, which creates a safety problem. Overall, the listening shows that the proposal needs better access before it can work well.',
+        ['Reading announcement', 'Listener response', 'First reason', 'Second reason', 'Overall result'],
+      ),
       xp: 24,
       followUp: 'After recording, remove one unnecessary template phrase while keeping the same structure.',
       responseMode: 'template_only',
@@ -541,6 +587,10 @@ export const practiceCards: Record<Section, PracticeCard[]> = {
       subskill: 'integrated synthesis',
       prompt: 'Reading: Urban rooftop farms can improve city food supply because they use unused space, reduce shipping distance, and teach communities about food production. Lecture: The professor argues these benefits are overstated because rooftop yields are limited, setup costs are high, and educational value does not solve supply problems. Write 180-240 words comparing the lecture with the reading.',
       explanation: 'Pair each lecture objection directly with the reading claim it challenges. Do not add your own opinion.',
+      modelAnswer: writingModel(
+        'The lecture challenges the reading’s claim that rooftop farms can significantly improve city food supply. First, the reading says rooftop farms use unused space, but the professor argues that their yields are too limited to produce a meaningful amount of food for a city. This weakens the idea that available roof space automatically creates a strong food source. Second, the reading claims that rooftop farms reduce shipping distance. The professor responds that setup and maintenance costs are high, so the projects may not be efficient even if the food travels a shorter distance. Finally, the reading says rooftop farms teach communities about food production. The professor agrees that education may occur, but explains that this benefit does not solve the practical supply problem. Overall, the lecture shows that the reading’s benefits are real but overstated.',
+        ['Intro source relationship', 'Claim one and challenge', 'Claim two and challenge', 'Claim three and challenge', 'Overall conclusion'],
+      ),
       xp: 28,
       followUp: 'Check whether each body paragraph names the reading claim first and the lecture challenge second.',
       responseMode: 'learner_answer',
@@ -560,6 +610,10 @@ export const practiceCards: Record<Section, PracticeCard[]> = {
       subskill: 'structure',
       prompt: 'Reading: A monument may have been built for defense because it sits on high ground, has thick walls, and overlooks trade routes. Lecture: The professor argues the site was ceremonial, noting poor storage space, decorative wall carvings, and limited military visibility in bad weather. Write 180-240 words explaining how the lecture challenges the reading.',
       explanation: 'A strong structure usually means one paragraph per reading claim and a matching lecture rebuttal in each paragraph.',
+      modelAnswer: writingModel(
+        'The lecture challenges the reading’s theory that the monument was built for defense. The reading first argues that the site’s high location made it useful for protection. However, the professor explains that the area had poor storage space, which would make it difficult for soldiers to remain there during a real conflict. The reading also points to the thick walls as evidence of a defensive purpose. The professor responds that the wall carvings are decorative, suggesting a ceremonial function rather than a military one. Finally, the reading says the monument overlooks trade routes. The professor weakens this point by noting that visibility was limited in bad weather, so the location would not always help defenders watch movement. Therefore, the lecture presents several reasons why a ceremonial explanation is stronger than the defense theory.',
+        ['Intro source relationship', 'Location challenge', 'Wall-purpose challenge', 'Visibility challenge', 'Conclusion'],
+      ),
       xp: 28,
       followUp: 'Did any paragraph drift into summary of only one source instead of comparison?',
       responseMode: 'learner_answer',
@@ -579,6 +633,10 @@ export const practiceCards: Record<Section, PracticeCard[]> = {
       subskill: 'discussion response quality',
       prompt: 'Professor: Some universities require students to complete community service before graduation. Is this a good idea? Student A says yes because it builds civic responsibility. Student B says no because students already face heavy workloads. Write 120-180 words contributing your opinion with one fresh reason and one specific example.',
       explanation: 'Respond directly to the discussion and contribute something new instead of repeating one classmate’s argument.',
+      modelAnswer: writingModel(
+        'I think community service should be required, but the requirement should be small and flexible. My main reason is that service can help students connect classroom knowledge to real problems. For example, an engineering student who volunteers with a local housing group may see how design decisions affect accessibility for older residents. That kind of experience can make academic work feel more responsible and practical. However, universities should let students choose approved projects that fit their schedules, because a heavy requirement could create the workload problem Student B mentions. A limited service requirement would give students useful community experience without turning it into another stressful class.',
+        ['Position', 'Fresh reason', 'Specific example', 'Balanced concession', 'Final judgment'],
+      ),
       xp: 22,
       followUp: 'Underline the single sentence that most clearly adds your own contribution to the thread.',
     },
@@ -589,6 +647,10 @@ export const practiceCards: Record<Section, PracticeCard[]> = {
       subskill: 'support quality',
       prompt: 'Professor: Should universities record every lecture and post it online? Student A says yes because it helps review. Student B says no because attendance may drop. Write 120-180 words giving your own opinion and support it with one developed example.',
       explanation: 'One developed reason with a concrete example is usually better than several shallow reasons.',
+      modelAnswer: writingModel(
+        'Universities should record lectures and post them online because recordings make review more accurate. Students often miss small details while taking notes, especially in courses with formulas, diagrams, or unfamiliar vocabulary. For example, in a chemistry lecture, a student may understand the main concept in class but later forget one step in the professor’s explanation. A recording lets the student replay that exact section and correct the notes before an exam. I understand the concern that attendance may drop, but professors can still require participation or in-class activities. The academic benefit of accurate review is more important than the risk that some students will use recordings lazily.',
+        ['Position', 'Reason', 'Course example', 'Concession', 'Final judgment'],
+      ),
       xp: 22,
       followUp: 'Could your example be made more concrete by adding a class, event, or consequence?',
     },
@@ -599,6 +661,10 @@ export const practiceCards: Record<Section, PracticeCard[]> = {
       subskill: 'coherence',
       prompt: 'Choose any earlier writing response. Rewrite it with clearer topic sentences, stronger transitions, and cleaner paragraph focus. Save both the original draft and the revision.',
       explanation: 'Local scoring is modest, so the best value comes from explicit revision that makes logic easier to follow.',
+      modelAnswer: writingModel(
+        'Original idea: Online lectures are useful because students can review them. Revised response: Universities should post lecture recordings because they help students repair gaps in their notes. For example, if a student misses one step in a biology explanation, the recording allows the student to replay that section and correct the mistake before studying for an exam. This support is especially valuable for international students who may understand the main idea in class but need a second listen for technical vocabulary. Therefore, recordings should not replace attendance, but they should be available as a review tool.',
+        ['Original focus', 'Clear revised claim', 'Specific example', 'Transition to audience benefit', 'Controlled conclusion'],
+      ),
       xp: 20,
       followUp: 'Name one transition you added that clarified the relationship between two ideas.',
     },
@@ -609,6 +675,10 @@ export const practiceCards: Record<Section, PracticeCard[]> = {
       subskill: 'grammar control',
       prompt: 'Write a 140-180 word response to this prompt: “Is it better for students to specialize early or explore many subjects first?” Then spend a revision pass checking verb tense, articles, sentence boundaries, and subject-verb agreement.',
       explanation: 'This card rewards a visible editing pass because repeated grammar errors can quietly cap an otherwise strong response.',
+      modelAnswer: writingModel(
+        'I believe students should explore many subjects before they specialize because early exploration helps them make better long-term choices. Many students choose a major before they understand what daily work in that field feels like. For example, a student who thinks she wants business may take psychology, statistics, and writing classes and discover that market research fits her interests better than general management. This broader experience can prevent costly changes later. Specializing early can be useful for students with a clear professional goal, but most students benefit from testing several fields first. After that, they can specialize with stronger confidence and a clearer reason.',
+        ['Position', 'Reason', 'Specific student example', 'Concession', 'Conclusion'],
+      ),
       xp: 20,
       followUp: 'List the two grammar patterns you corrected most often in your revision.',
     },
@@ -619,6 +689,10 @@ export const practiceCards: Record<Section, PracticeCard[]> = {
       subskill: 'integrated writing outline',
       prompt: 'Before drafting, fill this outline: Reading claim 1 -> Lecture challenge 1; Reading claim 2 -> Lecture challenge 2; Reading claim 3 -> Lecture challenge 3. Then write one body paragraph from one pair using present tense and no personal opinion.',
       explanation: 'Integrated writing becomes easier when every body paragraph has a clear source pair: what the reading claims and how the lecture challenges it.',
+      modelAnswer: writingModel(
+        'Reading claim 1 -> rooftop farms use unused space. Lecture challenge 1 -> yields are too limited to affect the city food supply. Reading claim 2 -> rooftop farms reduce shipping distance. Lecture challenge 2 -> setup and maintenance costs are high. Reading claim 3 -> rooftop farms educate communities. Lecture challenge 3 -> education does not solve supply problems. Body paragraph model: First, the reading claims that rooftop farms make productive use of empty roof space. The lecture challenges this point by explaining that the amount of food produced is usually limited, so the farms cannot supply a large city in a meaningful way.',
+        ['Three source pairs', 'Body paragraph topic', 'Reading claim', 'Lecture challenge', 'Result'],
+      ),
       xp: 26,
       followUp: 'Check whether your paragraph has both source sides, not just a reading summary or lecture summary.',
       responseMode: 'template_only',

@@ -1,6 +1,6 @@
 # TOEFL 120 Coach Project Status
 
-Last updated: 2026-06-15 21:32 KST
+Last updated: 2026-06-15 22:11 KST
 Repo: `/Users/carolinetakam/Documents/apps/toefl-120-coach-app-only`  
 Production URL: `https://score120coach.com`  
 Current branch: `main`  
@@ -54,6 +54,7 @@ The roadmap also required low-cost deterministic behavior first: use existing se
   - strategy reveal/open behavior from Today.
 - Integrated speaking/writing content model support now distinguishes answerable learner tasks from summary-only/template-only support materials and refuses to score incomplete integrated tasks.
 - Practice and mini mock speaking/writing UI now exposes source materials, structure templates, examples, task timers, and structure checklists while hiding answer submission for support-only/template-only material.
+- Model Answer & Compare Workflow v1 is implemented locally for Speaking and Writing practice plus mini mock tasks: every Speaking/Writing seed task has an approved static model answer, in-task `What ETS Wants`/`Model Answer` cards, and a checklist-only post-submit compare card. No AI scoring, GPT feedback, official TOEFL score claim, or audio-based scoring was added.
 - Sidebar settings now provide local preferences for timers, templates, and examples plus quick microphone help access. Theme mode was not added because the app is currently light-only.
 - Coaching Intelligence Layer v1 now derives a deterministic coaching profile from saved app state: predicted score availability/confidence, bottlenecks, next best action, score trend, and weekly report. It uses no AI calls, network calls, persistence changes, or official ETS score claims.
 - Today now shows Coaching Snapshot, Biggest Bottleneck, Best Next Action, Score Trend, and Weekly Report cards when enough learner evidence exists. Best Next Action routes into existing diagnostic, review, Path, or Library work rather than a placeholder.
@@ -75,6 +76,7 @@ The roadmap also required low-cost deterministic behavior first: use existing se
 - Local P1 progress/completion UX is now complete: required path days need all required submitted actions, locked days name missing required repairs, Path/Progress missing repairs are clickable, and submitted work shows a next-step prompt. This is verified locally but not yet deployed.
 - Local integrated-materials, timer/structure, and settings/preferences UX is implemented and verified locally. Production deployment and live learner smoke remain unverified.
 - Local Coaching Intelligence Layer v1 module, Today UI, regression coverage, full automated gate, and desktop/mobile guest browser QA are complete. Production signed-in coaching-card QA remains unverified.
+- Local Model Answer & Compare Workflow v1 is implemented and verified in guest browser QA. Production deployment and signed-in production persistence/display remain unverified.
 - No verified live backup/export/reset/paste-import restore smoke test in this phase.
 - No verified real support email send/receive loop in this phase.
 - Attempts are still primarily full-state/client-flow based, not a fully event-based immutable attempt engine.
@@ -93,10 +95,11 @@ export PATH=/Users/carolinetakam/.cache/codex-runtimes/codex-primary-runtime/dep
 
 | Gate | Result | Evidence |
 | --- | --- | --- |
-| Full Vitest suite | PASS | `vitest run --pool=threads` -> 32 test files passed, 147 tests passed after Coaching Intelligence Layer v1 regression coverage |
-| TypeScript | PASS | `tsc --noEmit` completed before build |
-| ESLint | PASS | `eslint .` completed before build |
+| Full Vitest suite | PASS | `vitest run --pool=threads` -> 34 test files passed, 152 tests passed after Model Answer & Compare Workflow coverage |
+| TypeScript | PASS | `tsc --noEmit` completed after build regenerated `.next/types`; an earlier parallel run failed while `.next/types` was being regenerated |
+| ESLint | PASS | `eslint .` completed before closeout |
 | Production build | PASS | `next build --webpack` compiled and generated 9 static pages |
+| Local model-answer browser QA | PASS | `next start --port 3002` + bundled headless Chromium verified guest onboarding/diagnostic, Library > Speaking in-task Model Answer/What ETS Wants, post-submit Compare Yourself checklist, no AI/audio-scoring claims, and no desktop/mobile horizontal overflow |
 | Local production UI smoke | PASS with auth-provider warnings | `next start --port 3002` returned HTTP 200; headless Chromium verified guest mode after auth timeout, Settings panel, Mic help, and active Timers/Templates/Examples toggles on desktop/mobile. Local Clerk resource calls returned two 400 errors, matching local auth-provider checks rather than app runtime exceptions. |
 | Local coaching browser QA | PASS with auth-provider warnings | Headless Chromium verified desktop/mobile Today coaching cards, guest banner, no horizontal overflow, no forbidden score claims, Best Next Action opening a real Library task, and Path/Progress/Library tab loads. |
 | Coaching unit/regression tests | PASS | `vitest run lib/coaching --pool=threads` -> 7 files / 23 tests covering prediction priority, bottlenecks, next action, trend, weekly report, reset, and backup import regeneration. |

@@ -736,6 +736,42 @@ select:focus-visible {
   color: var(--text);
 }
 
+.modelAnswerCard,
+.modelExpectationsCard,
+.answerComparisonCard {
+  padding: 16px;
+  border-radius: var(--radius-card);
+  border: 1px solid color-mix(in srgb, var(--accent), white 74%);
+  background: linear-gradient(145deg, color-mix(in srgb, var(--accent), white 95%), var(--surface-raised));
+  box-shadow: var(--shadow-card);
+  text-align: left;
+}
+
+.modelAnswerCard > p,
+.comparisonText {
+  line-height: 1.6;
+}
+
+.comparisonText {
+  min-height: 96px;
+  margin: 0;
+  padding: 12px;
+  border-radius: var(--radius-control);
+  background: var(--surface-soft);
+  color: var(--text-soft);
+  box-shadow: var(--shadow-inset);
+}
+
+.comparisonCheck {
+  justify-content: flex-start;
+  min-height: 38px;
+}
+
+.comparisonCheck input {
+  width: auto;
+  min-height: auto;
+}
+
 .coachingCard {
   align-content: start;
   min-height: 220px;

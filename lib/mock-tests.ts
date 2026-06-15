@@ -1,4 +1,4 @@
-import { ContentResponseMode, IntegratedTaskMaterials, Section, SourceMaterialCompleteness } from '@/lib/types';
+import { ContentResponseMode, IntegratedTaskMaterials, ModelAnswer, Section, SourceMaterialCompleteness } from '@/lib/types';
 import { evaluateSpeakingAttempt, evaluateWritingAttempt } from '@/lib/scoring';
 
 export interface MockQuestion {
@@ -34,6 +34,25 @@ export interface IntegratedMockTask {
   exampleResponse?: string;
   targetSeconds?: number;
   wordRange?: { min: number; max: number };
+  modelAnswer?: ModelAnswer;
+}
+
+function speakingModel(response: string, structure: string[]): ModelAnswer {
+  return {
+    scoreBand: 'High 4/5 speaking signal',
+    response,
+    strengths: ['Answers the task directly', 'Keeps source order clear', 'Uses specific details instead of filler', 'Finishes with a complete final idea'],
+    structure,
+  };
+}
+
+function writingModel(response: string, structure: string[]): ModelAnswer {
+  return {
+    scoreBand: 'High 4/5 writing signal',
+    response,
+    strengths: ['Clear position or source relationship', 'One controlled main reason', 'Specific example or source contrast', 'Clean final connection to the prompt'],
+    structure,
+  };
 }
 
 export interface MockAttemptEvaluation {
@@ -76,6 +95,10 @@ export const mockTests: MockTest[] = [
       },
       template: 'Main process -> stage one -> later change -> why the final community can differ.',
       targetSeconds: 60,
+      modelAnswer: speakingModel(
+        'The professor explains that ecological succession on abandoned farmland happens in stages. First, grasses appear because they can handle exposed soil and direct sunlight. Later, shrubs and young trees create shade, so the conditions change for other species. The final plant community may not be exactly like the original one because human activity, seed availability, and soil chemistry can all affect what grows there.',
+        ['Main process', 'First stage', 'Later change', 'Reason the outcome can differ'],
+      ),
     },
     writingTask: {
       section: 'writing',
@@ -93,6 +116,10 @@ export const mockTests: MockTest[] = [
       },
       template: 'Position -> one reason -> concrete example -> result.',
       wordRange: { min: 120, max: 180 },
+      modelAnswer: writingModel(
+        'I think smaller discussion-based classes are worth the extra cost when the course requires participation. In a large lecture, many students can hide confusion because asking a question in front of a huge group feels uncomfortable. In a smaller class, the professor can notice misunderstanding earlier and students can test ideas with classmates. For example, in an ethics or literature course, students improve by explaining their reasoning and hearing challenges from others, not just by listening to slides. This makes the extra cost reasonable because the class creates stronger learning habits and more useful feedback.',
+        ['Position', 'Reason', 'Concrete course example', 'Result'],
+      ),
     },
     questions: [
       {
@@ -181,6 +208,10 @@ export const mockTests: MockTest[] = [
       },
       template: 'Method -> evidence type -> why one layer is not enough -> comparison sources.',
       targetSeconds: 60,
+      modelAnswer: speakingModel(
+        'The professor says river sediment helps researchers understand past environments because different layers show different water conditions. Larger sand layers can show fast water flow, while fine silt can show calmer periods. However, one layer is not enough evidence by itself. Researchers need to compare several samples with rainfall records and plant remains before they make a claim about past floods.',
+        ['Method', 'Evidence type', 'Limit of one layer', 'Comparison evidence'],
+      ),
     },
     writingTask: {
       section: 'writing',
@@ -198,6 +229,10 @@ export const mockTests: MockTest[] = [
       },
       template: 'Position -> learning value or cost -> concrete course example -> result.',
       wordRange: { min: 120, max: 180 },
+      modelAnswer: writingModel(
+        'Archive work is worth the extra time for history students because it teaches them how historical claims are built from evidence. A textbook can summarize an event clearly, but it may hide the uncertainty behind that summary. If students examine local letters, maps, or shipping records, they learn to ask who created a source and what details are missing. For example, a class studying immigration could compare textbook conclusions with local newspaper records and see how community experiences differed. This takes longer, but it makes students better researchers instead of only better memorizers.',
+        ['Position', 'Evidence-skill reason', 'Specific archive example', 'Learning result'],
+      ),
     },
     questions: [
       {
@@ -281,6 +316,10 @@ export const mockTests: MockTest[] = [
       },
       template: 'Policy -> student concern -> advisor reason -> recommendation.',
       targetSeconds: 60,
+      modelAnswer: speakingModel(
+        'The new policy requires students to reserve lab equipment online. The student is worried because last-minute projects might become harder under this system. The advisor explains that reservations will prevent conflicts, and emergency slots will still be available. She recommends reserving early for planned work and using the emergency slots only when an experiment fails unexpectedly.',
+        ['Policy', 'Student concern', 'Advisor reason', 'Recommendation'],
+      ),
     },
     writingTask: {
       section: 'writing',
@@ -298,6 +337,10 @@ export const mockTests: MockTest[] = [
       },
       template: 'Position -> reason -> campus example -> consequence.',
       wordRange: { min: 120, max: 180 },
+      modelAnswer: writingModel(
+        'Universities should require students to book study rooms in advance because group projects need predictable space. A first-come system sounds flexible, but it can waste a lot of time when several teams are searching for rooms at the same hour. For example, a biology group preparing a lab presentation may need a screen, a whiteboard, and quiet discussion time. If they reserve a room before the meeting, they can start working immediately instead of moving around the library. Advance booking is not perfect, but it protects serious academic work better than a purely open system.',
+        ['Position', 'Reason', 'Campus example', 'Balanced final result'],
+      ),
     },
     questions: [
       {
@@ -386,6 +429,10 @@ export const mockTests: MockTest[] = [
       },
       template: 'Main idea -> mechanism one -> mechanism two -> street example -> limits.',
       targetSeconds: 60,
+      modelAnswer: speakingModel(
+        'The professor explains that urban trees cool streets in two main ways. First, trees provide shade, so less direct sunlight reaches sidewalks and roads. Second, water evaporates from their leaves, which can lower the nearby air temperature. The professor gives an example of two nearby streets: the street with older trees stayed cooler in the afternoon. She also notes that tree type, water access, and building height can change how strong the effect is.',
+        ['Main idea', 'Two mechanisms', 'Street example', 'Limit on the effect'],
+      ),
     },
     writingTask: {
       section: 'writing',
@@ -403,6 +450,10 @@ export const mockTests: MockTest[] = [
       },
       template: 'Priority -> reason -> city example -> public benefit.',
       wordRange: { min: 120, max: 180 },
+      modelAnswer: writingModel(
+        'Cities should prioritize planting street trees because cooler and safer streets benefit more people than a few extra parking spaces. Parking is useful, but it mainly helps drivers who find those spaces. Trees improve daily conditions for pedestrians, bus riders, nearby residents, and even local businesses. For example, a shaded bus stop can make summer travel safer for older people and students who cannot drive. Tree-lined sidewalks can also make short trips more comfortable, so people may walk instead of using cars for every errand. For that reason, street trees are the better public investment.',
+        ['Priority', 'Reason', 'City example', 'Public benefit'],
+      ),
     },
     questions: [
       {
