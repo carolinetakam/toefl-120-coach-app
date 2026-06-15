@@ -2,12 +2,12 @@
 
 Date/time: 2026-06-15 23:08 KST  
 Repo: `/Users/carolinetakam/Documents/Apps/toefl-120-coach-app-only`  
-Branch/head: `main` / local changes after `0f57406`  
+Branch/head: `main` / `ea28e71` then documentation update  
 Owner/agent: Codex
 
 ## 1. Status
 
-Done locally. Pending push/deployment and live account retest at the time of this report.
+Done, pushed, deployed to production, and production auth-entry pages smoke-tested without credentials. Real-account login remains unverified.
 
 ## 2. Objective
 
@@ -54,15 +54,19 @@ Browser checks:
 - Production pre-fix smoke at `https://score120coach.com` confirmed the existing Clerk modal opened and Clerk assets returned HTTP 200 without entering credentials.
 - Local production server `next start --port 3002` verified the signed-out `Log In` button navigated to `/sign-in`.
 - Local production server verified `/sign-in` and `/sign-up` route copy rendered.
+- `git push origin main` -> pushed `ea28e71`.
+- Production polling showed `/sign-in` changed from 404 to HTTP 200 after deploy.
+- `curl` production route smoke -> HTTP 200 for `/`, `/sign-in`, `/sign-up`, `/beta`, `/support`, `/privacy`, `/terms`, and `/korea`.
+- `https://score120coach.com/api/readiness` -> `ready:true` and `manualReviewRequired:true`.
+- Production Chromium smoke verified the live `Log In` button routes to `/sign-in`, `/sign-in` renders Clerk email/password fields, `/sign-up` renders Clerk account creation fields, and no console errors or HTTP 4xx/5xx responses appeared.
 
 Local limitation:
 
-- Local Clerk form fields did not render under the live production Clerk key because Clerk returned HTTP 400 for `localhost`, matching the known local-auth-provider limitation. Production-domain verification remains required after deploy.
+- Local Clerk form fields did not render under the live production Clerk key because Clerk returned HTTP 400 for `localhost`, matching the known local-auth-provider limitation. Production-domain form rendering was verified after deploy.
 
 ## 7. What remains unverified
 
 - Real production login with Caroline's actual account.
-- Production `/sign-in` and `/sign-up` pages after Vercel deploy.
 - Signed-in Convex restore after login.
 - Backup/reset/import restore and support email checks.
 
@@ -70,7 +74,7 @@ Local limitation:
 
 **BETA BLOCKED**
 
-This reduces login-entry risk but does not clear external beta. A real production account must still sign in, restore/sync progress, and pass the existing backup/support smoke gates.
+This reduces login-entry risk and verifies the production auth pages render, but does not clear external beta. A real production account must still sign in, restore/sync progress, and pass the existing backup/support smoke gates.
 
 ## 9. Risks / rollback notes
 
@@ -79,4 +83,4 @@ This reduces login-entry risk but does not clear external beta. A real productio
 
 ## 10. Next smallest useful step
 
-Push/deploy this patch, then open `https://score120coach.com/sign-in` and confirm the email/password sign-in form renders on the production domain. After that, complete one real-account login and verify the app returns to `/` as signed in.
+Complete one real-account login at `https://score120coach.com/sign-in` and verify the app returns to `/` as signed in with `Save Synced`.
