@@ -9,7 +9,13 @@ export default function SignInPage() {
           <span className="kicker">TOEFL 120 Coach</span>
           <h1>Log in to continue your TOEFL path.</h1>
           <p>Use the same account to restore synced profile, diagnostic, mini mock, review, and progress data.</p>
-          <Link className="authFallbackLink" href="/?auth=sign-in">If this page does not load, open the login popup.</Link>
+          <div className="authFallbackPanel">
+            <p>If the form stays blank, refresh this page once. If it still does not load, continue as guest and tell support your browser.</p>
+            <div className="chips">
+              <Link className="authFallbackLink" href="/sign-up">Create account</Link>
+              <Link className="authFallbackLink" href="/">Continue as guest</Link>
+            </div>
+          </div>
         </div>
         <SignIn
           path="/sign-in"

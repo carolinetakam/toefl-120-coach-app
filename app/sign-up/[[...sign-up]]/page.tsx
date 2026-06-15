@@ -9,7 +9,13 @@ export default function SignUpPage() {
           <span className="kicker">Private beta</span>
           <h1>Create your TOEFL 120 Coach account.</h1>
           <p>Account progress syncs through Clerk and Convex. Guest progress stays only on the current device.</p>
-          <Link className="authFallbackLink" href="/?auth=sign-up">If this page does not load, open the account popup.</Link>
+          <div className="authFallbackPanel">
+            <p>If the form stays blank, refresh this page once. If it still does not load, continue as guest and tell support your browser.</p>
+            <div className="chips">
+              <Link className="authFallbackLink" href="/sign-in">Log in instead</Link>
+              <Link className="authFallbackLink" href="/">Continue as guest</Link>
+            </div>
+          </div>
         </div>
         <SignUp
           path="/sign-up"

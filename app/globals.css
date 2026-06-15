@@ -177,6 +177,21 @@ audio {
   text-underline-offset: 4px;
 }
 
+.authFallbackPanel {
+  display: grid;
+  gap: 10px;
+  max-width: 380px;
+  padding: 12px;
+  border-radius: var(--radius-card);
+  background: var(--surface-soft);
+  box-shadow: var(--shadow-inset);
+}
+
+.authFallbackPanel p {
+  max-width: none;
+  color: var(--muted);
+}
+
 .stack {
   display: grid;
   gap: 16px;
