@@ -1,6 +1,6 @@
 # TOEFL 120 Coach Project Status
 
-Last updated: 2026-06-15 14:12 KST
+Last updated: 2026-06-15 14:18 KST
 Repo: `/Users/carolinetakam/Documents/apps/toefl-120-coach-app-only`  
 Production URL: `https://score120coach.com`  
 Current branch: `main`  
@@ -61,6 +61,7 @@ The roadmap also required low-cost deterministic behavior first: use existing se
 
 - Live signed-in sync smoke has partial positive evidence: Caroline reported on 2026-06-15 after the validator and auth-state fixes that a previously tested account restored data after logout/login and also restored in incognito. This is not full beta clearance because different-account isolation, Safari, backup/restore, and support email remain unverified.
 - Backup export has partial positive evidence: Caroline provided `/Users/carolinetakam/Downloads/toefl-120-coach-backup-2026-06-15.json`, which parsed as a valid TOEFL backup with profile, diagnostic, progress, review, mini mock, and speaking attempt data. Reset/import restore remains unverified.
+- Reset has user-reported positive evidence, but the import button was inaccessible after reset until diagnostic was redone. A local fix moves file import into the always-visible sidebar progress controls; deployment and actual import restore remain unverified.
 - Root cause found: production `coach:saveAppState` mutations reached Convex but failed argument validation because the deployed backend validator did not accept `state.diagnosticFormId` and `state.speakingAttempts[].hasAudioEvidence`. Convex production was redeployed with the current validator and a backend-only synthetic save/restore check passed.
 - A patch now adds explicit sign out/switch controls and prevents one signed-in account from inheriting another account’s local browser progress. The live browser/account matrix still must be retested before beta clearance.
 - Local auth-state hardening now prevents signed-out/loading users from seeing stale personalized workspace content, adds explicit `Log In`, `Continue as Guest`, and `Create Account` actions, and makes guest mode explicit/local-only. This is verified locally but not yet deployed or tested with a real production Clerk account.
@@ -93,6 +94,8 @@ export PATH=/Users/carolinetakam/.cache/codex-runtimes/codex-primary-runtime/dep
 | Local logout/guest auth UI | PASS locally | Production-mode local Chrome check verified signed-out prompt/actions, guest banner/actions, and mobile no-overflow |
 | Same-account logout/login + incognito restore | USER-REPORTED PASS | Caroline reported data restored after logout/login and in incognito for an account tested earlier |
 | Backup export | USER-PROVIDED FILE PASS | `toefl-120-coach-backup-2026-06-15.json` parsed successfully and contains meaningful learner state |
+| Reset progress | USER-REPORTED PASS | Caroline reported reset works |
+| Import access after reset | FIXED LOCALLY | Sidebar Progress controls now include `Import backup` before diagnostic completion; production restore still unverified |
 
 Important tool note: `npm` was not available on the default shell PATH. Use the Node runtime path above and direct binaries (`vitest`, `tsc`, `eslint`, `next`) unless the shell PATH is fixed.
 
@@ -115,7 +118,7 @@ The app is close, but beta onboarding should remain blocked until these are veri
 ## Current highest-risk areas
 
 1. **Manual production sync incomplete:** Same-account logout/login and incognito restore are user-reported passing, but different-account isolation and Safari still need production browser verification.
-2. **Backup/reset trust incomplete:** Backup export works from a user-provided file, but reset/import restore is not proven.
+2. **Backup/reset trust incomplete:** Backup export and reset have positive evidence, but import restore is not proven. Import access after reset is fixed locally and must be deployed/tested.
 3. **Support deliverability unknown:** Beta users need a real support path before invitation.
 4. **Full-state sync is transitional:** Good enough for first beta if smoke-tested; should become event-based before paid/public launch.
 5. **Speaking/audio durability:** Do not market durable audio review yet.

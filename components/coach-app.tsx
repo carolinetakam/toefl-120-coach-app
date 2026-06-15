@@ -1588,9 +1588,20 @@ export function CoachApp() {
           {!shouldBlockPersonalizedContent && (
             <div className="chips">
               <button className="ghost compactButton" onClick={exportProgress}>Export</button>
+              <button className="secondary compactButton" onClick={() => importInputRef.current?.click()}>Import backup</button>
             </div>
           )}
         </div>
+        <input
+          ref={importInputRef}
+          type="file"
+          accept="application/json,.json"
+          hidden
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            if (file) void importProgress(file);
+          }}
+        />
       </aside>
 
       <div className="workspaceMain stack">
@@ -2727,16 +2738,6 @@ export function CoachApp() {
                     </button>
                     <button className="secondary" onClick={() => importInputRef.current?.click()}>Import backup</button>
                     <button className="danger" onClick={clearAllData}>Reset data</button>
-                    <input
-                      ref={importInputRef}
-                      type="file"
-                      accept="application/json,.json"
-                      hidden
-                      onChange={(event) => {
-                        const file = event.target.files?.[0];
-                        if (file) void importProgress(file);
-                      }}
-                    />
                   </div>
                 </div>
                 {showBackupText && (
